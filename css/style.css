@@ -1,3 +1,157 @@
 body {
-    text-align: center;
+	font-family: 'Averia Libre', cursive;
+  text-align: center;
+  margin:0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+* {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+*:before, *:after {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+h1 {
+	margin: 1em 0;
+	padding-top: 1em;
+}
+.hidden {
+	visibility: hidden;
+}
+
+.modal {
+	position:fixed;
+	top:0;
+	right:0;
+	bottom:0;
+	left:0;
+	overflow:hidden;
+	z-index: 1024;
+}
+
+.modal-bkg {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-color: #000;
+
+  /* temp */
+  opacity: 0.5;
+}
+
+.modal-dialog {
+	position: relative;
+  color: black;
+  width: 750px; /* 7 columns, 550px for 5 columns */
+  height: 670px; /* matches canvas height + 1px for even number */
+  /* from bootstrap
+  width: 80%;
+  max-width: 960px;
+  */
+  /* to align at top, had to use negative top margin equal to line-height */
+  margin: 0 auto; /*  -1.2rem auto 0 auto;*/
+
+}
+
+.modal-content {
+  /* tmp */
+  height:100%;
+  background-color: #fff;
+
+	-webkit-border-radius: 90px 90px 90px 90px;
+	border-radius: 90px 90px 90px 90px;
+
+  box-shadow: 0 6px #ab3c3c;
+
+/*
+  border: 1px solid #999;
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 6px;
+  -webkit-box-shadow: 0 3px 9px rgba(0,0,0,0.5);
+  box-shadow: 0 3px 9px rgba(0,0,0,0.5);
+  background-clip: padding-box;
+  outline: 0;
+*/
+}
+
+.modal-header {
+
+}
+.modal-body {
+
+}
+.modal-footer {
+	position: absolute;
+	padding:1em;
+	right:0;
+	bottom:0;
+	left:0;
+
+	/*background:#feb;*/
+}
+/* button style copped from http://tympanus.net/Development/CreativeButtons/ */
+.btn {
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  cursor: pointer;
+  padding: 25px 80px;
+  display: inline-block;
+  margin: 15px 30px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  outline: none;
+  position: relative;
+  -webkit-transition: all 0.3s;
+  -moz-transition: all 0.3s;
+  transition: all 0.3s;
+}
+
+.btn:before {
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn-2 {
+  background: #cb4e4e;
+  color: #fff;
+  box-shadow: 0 6px #ab3c3c;
+  -webkit-transition: none;
+  -moz-transition: none;
+  transition: none;
+}
+
+.btn-2i {
+  border-radius: 50%;
+  width: 90px;
+  height: 90px;
+  padding: 0;
+}
+
+.btn-2i:hover {
+  box-shadow: 0 4px #ab3c3c;
+  top: 2px;
+}
+
+.btn-2i:active {
+  box-shadow: 0 0 #ab3c3c;
+  top: 6px;
 }

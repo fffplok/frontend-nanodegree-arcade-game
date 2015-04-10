@@ -65,11 +65,11 @@ var Engine = (function(global) {
      * game loop.
      */
     function init() {
-        console.log('Game:',Game);
+        console.log('game:',game);
         reset();
         lastTime = Date.now();
 
-        main();
+        //main();
     }
 
     /* This function is called by main (our game loop) and itself calls all
@@ -111,11 +111,11 @@ var Engine = (function(global) {
         renderEntities();
     }
 
-    /* GG let's leave open the possibility that the board will change. Game exposes the tiles array, each tile
+    /* GG let's leave open the possibility that the board will change. game exposes the tiles array, each tile
      * is an instance of Entity and will render itself.
      */
     function renderBoard() {
-        Game.tiles.forEach(function(tile) {
+        game.tiles.forEach(function(tile) {
             tile.render();
         });
     }
@@ -155,6 +155,7 @@ var Engine = (function(global) {
         'images/char-boy.png'
     ]);
     Resources.onReady(init);
+    //Resources.onReady(game.init);
 
     /* Assign the canvas' context object to the global variable (the window
      * object when run in a browser) so that developer's can use it more easily
@@ -164,6 +165,8 @@ var Engine = (function(global) {
 
     //GG note. if we wanted a variable Engine, we need to return something
     return {
+        init: init,
+        main: main,
         render: render
     }
 })(this);

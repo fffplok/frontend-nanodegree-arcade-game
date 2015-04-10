@@ -6,7 +6,7 @@ var ROWS = 6,
     ROW_HEIGHT = 83,
     COL_WIDTH = 101;
 
-var Game = (function() {
+var game = (function() {
     var level = 0,
         tiles = [],
         api = {
@@ -16,9 +16,16 @@ var Game = (function() {
                 this.buildTiles();
                 player = new Player('images/char-boy.png');
                 this.setPlayerStart();
+
+                modal.modalIn({
+                    header:"<h1>Effective JavaScript: Frogger</h1>",
+                    body:"<p>well, so ya wanna play a game, eh?</p>"
+                });
+                //Engine.main();
+
             },
             setPlayerStart: function() {
-                console.log('setPlayerStart, player.bottommost: ', player.bottommost);
+                //console.log('setPlayerStart, player.bottommost: ', player.bottommost);
                 player.setPosition(2*COL_WIDTH, player.bottommost);
             },
             buildTiles: function() {
@@ -142,9 +149,17 @@ var buildEnemies = function(n) {
 // Place all enemy objects in an array called allEnemies
 // Place the player object in a variable called player
 
-Game.init();
-//var player = new Player('images/char-boy.png');
-buildEnemies(3);
+//jQuery ready...
+$(function() {
+    modal.init();
+    game.init();
+    //console.log('jQuery ready, modal:', modal);
+
+    //modal.button.on('click', modal.modalOut);
+    //var player = new Player('images/char-boy.png');
+    buildEnemies(3);
+
+});
 
 
 // This listens for key presses and sends the keys to your
