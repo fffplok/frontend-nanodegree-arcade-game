@@ -16,13 +16,6 @@ var modal = (function() {
             HIDDEN = 'hidden';
 
         var api = {
-            //TEMP ONLY - test the selection of elements
-            // modal: modal,
-            // button: button,
-            // bkg: bkg,
-            // header: header,
-            // body: body,
-            // footer: footer,
 
             init: function() {
                 //ensure modalOut has the correct 'this'. use $.proxy
@@ -33,6 +26,13 @@ var modal = (function() {
                 header = $('.modal-header');
                 body = $('.modal-body');
                 footer = $('.modal-footer');
+            },
+
+            handleInput: function(k) {
+                console.log('Modal.handleInput, k, this: ',k, this);
+                if (modal.hasClass(MODAL_IN)) {
+                    if (k === 'enter') this.modalOut();
+                }
             },
 
             //remove classes specifying css animation
@@ -55,7 +55,7 @@ var modal = (function() {
             },
 
             modalOut: function() {
-                console.log('modal.modalOut, this, game: ', this, game);
+                //console.log('modal.modalOut, this, game: ', this, game);
 
                 this.cleanCSS();
 

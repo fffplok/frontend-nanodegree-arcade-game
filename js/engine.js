@@ -65,7 +65,7 @@ var Engine = (function(global) {
      * game loop.
      */
     function init() {
-        console.log('game:',game);
+        //console.log('game:',game);
         reset();
         lastTime = Date.now();
 
@@ -107,6 +107,10 @@ var Engine = (function(global) {
      * they are just drawing the entire screen over and over.
      */
     function render() {
+        //fill so any moving images over transparency don't leave a trail
+        ctx.fillStyle = '#dadad0';
+        ctx.fillRect(0, 0, COLS * COL_WIDTH, ROWS * ROW_HEIGHT + TILE_HEIGHT);
+
         renderBoard();
         renderEntities();
     }
@@ -128,6 +132,12 @@ var Engine = (function(global) {
         /* Loop through all of the objects within the allEnemies array and call
          * the render function you have defined.
          */
+        for (var text in texts) {
+            texts[text].render();
+        }
+        hearts.forEach(function(heart) {
+            heart.render();
+        });
         allEnemies.forEach(function(enemy) {
             enemy.render();
         });
@@ -150,9 +160,12 @@ var Engine = (function(global) {
     Resources.load([
         'images/stone-block.png',
         'images/water-block.png',
+        'images/dirt-block.png',
         'images/grass-block.png',
         'images/enemy-bug.png',
-        'images/char-boy.png'
+        'images/char-boy.png',
+        'images/Heart.png',
+        'images/heart-small.png'
     ]);
     Resources.onReady(init);
     //Resources.onReady(game.init);

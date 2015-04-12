@@ -1,19 +1,42 @@
+//images are 101x171, but overlap, from resources, find 83 as row interval
+
 //constants
 var ROWS = 6,
-    COLS = 7,
+    COLS = 6,
     TILES_TOP = 10, //for rendering tiles so that entities position better over tile
     TILE_HEIGHT = 171,
     ROW_HEIGHT = 83,
-    COL_WIDTH = 101;
+    COL_WIDTH = 101,
+    MIN_SPEED = 25,
+    MAX_SPEED = 200;
+
+//declaration for global vars
+var player,
+    allEnemies,
+    texts,
+    hearts,
+    gems,
+    stones;
+
+function getRandomInt(min, max) {
+   return Math.floor(Math.random() * (max - min)) + min;
+}
 
 var game = (function() {
     var level = 0,
         tiles = [],
+        speed = 1,
+        lives = 3,
+        txtScore, txtLives,
         api = {
+            speed: speed, //overall speed
             tiles: tiles,
 
             init: function() {
                 this.buildTiles();
+                this.buildHearts();
+                this.buildTexts();
+                this.buildEnemies();
                 player = new Player('images/char-boy.png');
                 this.setPlayerStart();
 
@@ -21,15 +44,42 @@ var game = (function() {
                     header:"<h1>Effective JavaScript: Frogger</h1>",
                     body:"<p>well, so ya wanna play a game, eh?</p>"
                 });
-                //Engine.main();
+            },
 
-            },
             setPlayerStart: function() {
-                //console.log('setPlayerStart, player.bottommost: ', player.bottommost);
-                player.setPosition(2*COL_WIDTH, player.bottommost);
+                player.setPosition(getRandomInt(0, COLS)*COL_WIDTH, player.bottommost);
             },
+
+            buildEnemies: function() {
+                allEnemies = []; //each call to buildEnemies refreshes enemies with new array
+                //TODO: make some more interesting way of determining how many enemies we have
+                var n = (level < 5) ? 1 : 5;
+                for (var i = 0; i < n; i++) {
+                    allEnemies.push(new Enemy('images/enemy-bug.png'));
+                }
+            },
+
+            buildTexts: function() {
+                texts = {};
+                texts.score = new Text('Score: ', 19999, (COLS - 3)*COL_WIDTH, 46);
+                texts.level = new Text('Level: ', '0', (COLS - 1)*COL_WIDTH, 46);
+                texts.timeRemaining = new Text('Time Remaining: ', '0:00', 0, (ROWS+2)*ROW_HEIGHT-36);
+            },
+
+            buildHearts: function() {
+                hearts = [];
+                var i,
+                    x = 10,
+                    y = 10,
+                    w = 40;
+                for (i = 0; i < lives; i++) {
+                   hearts.push(new Entity('images/heart-small.png', x, y));
+                   x += w;
+                }
+            },
+
             buildTiles: function() {
-                var row, col,
+                var row, col, dirtX,
                     rowImages = [
                     'images/water-block.png',   // Top row is water
                     'images/stone-block.png',   // Row 1 of 3 of stone
@@ -39,9 +89,19 @@ var game = (function() {
                     'images/grass-block.png'    // Row 2 of 2 of grass
                 ];
 
+                dirtX = getRandomInt(1, COLS-1);
+
+                //make sure there is a color over the canvas
+                //ctx.fillStyle = '#dadad0';
+                //ctx.fillRect(0, 0, COLS * COL_WIDTH, ROWS * ROW_HEIGHT + TILE_HEIGHT);
+
                 for (row = 0; row < ROWS; row++) {
                     for (col = 0; col < COLS; col++) {
-                        tiles.push(new Entity(rowImages[row], col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
+                        if (row === 0 && col === dirtX) {
+                            tiles.push(new Entity('images/dirt-block.png', col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
+                        } else {
+                            tiles.push(new Entity(rowImages[row], col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
+                        }
                     }
                 }
             }
@@ -67,19 +127,33 @@ Entity.prototype.setPosition = function(x, y) {
     this.y = y;
 }
 
-// Enemies our player must avoid
-var Enemy = function() {
-    // Variables applied to each of our instances go here,
-    // we've provided one for you to get started
-
-    // The image/sprite for our enemies, this uses
-    // a helper we've provided to easily load images
-    this.sprite = 'images/enemy-bug.png';
-
-    //images are 101x171, but overlap, from resources, find 83 as row interval
-    this.x = 0;
-    this.y = 0;
+var Text = function(fixed, dynamic, x, y) {
+    Entity.call(this, null, x, y);
+    this.fixed = fixed;
+    this.dynamic = dynamic || '';
 }
+
+Text.prototype = Object.create(Entity.prototype);
+Text.prototype.constructor = Text;
+
+Text.prototype.render = function() {
+    ctx.font = '24px "Averia Libre", cursive'; //danger, need fallback font
+    ctx.fillStyle = '#000'; //TODO: choose color
+    ctx.fillText(this.fixed + this.dynamic, this.x, this.y);
+}
+
+// Enemies our player must avoid
+var Enemy = function(img, x, y) {
+    Entity.call(this, img, x, y);
+    this.rightmost = COLS * COL_WIDTH;
+
+    this.setSpeed();
+    this.setStartPosition();
+}
+
+Enemy.prototype = Object.create(Entity.prototype);
+Enemy.prototype.constructor = Enemy;
+
 
 // Update the enemy's position, required method for game
 // Parameter: dt, a time delta between ticks
@@ -87,12 +161,27 @@ Enemy.prototype.update = function(dt) {
     // You should multiply any movement by the dt parameter
     // which will ensure the game runs at the same speed for
     // all computers.
+    this.x += dt * this.speed * game.speed;
+    if (this.x > this.rightmost) this.setStartPosition();
+
+    //console.log('player:', player);
+    if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y+TILES_TOP === player.y) console.log('collision!');
 }
 
 // Draw the enemy on the screen, required method for game
 Enemy.prototype.render = function() {
     ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
 }
+
+Enemy.prototype.setSpeed = function() {
+    this.speed = getRandomInt(MIN_SPEED, MAX_SPEED);
+}
+
+Enemy.prototype.setStartPosition = function() {
+    this.x = getRandomInt(1, 4) * COL_WIDTH * -1; //off canvas to left
+    this.y = getRandomInt(1, 4) * ROW_HEIGHT - TILES_TOP; //any of the stone block tiled rows
+}
+
 
 // Now write your own player class
 // This class requires an update(), render() and
@@ -136,15 +225,15 @@ Player.prototype.handleInput = function(k) {
             console.log('unknown keycode, k:', k);
     }
     //Signature here?
-}
-//var matrix = []; //would this be useful?
-var allEnemies;
-var buildEnemies = function(n) {
-    allEnemies = []; //each call to buildEnemies refreshes enemies with new array
-    for (var i = 0; i < n; i++) {
-        allEnemies.push(new Enemy());
+
+/*
+    //testing only
+    if (hearts.length) {
+        hearts.pop();
     }
+*/
 }
+
 // Now instantiate your objects.
 // Place all enemy objects in an array called allEnemies
 // Place the player object in a variable called player
@@ -157,7 +246,7 @@ $(function() {
 
     //modal.button.on('click', modal.modalOut);
     //var player = new Player('images/char-boy.png');
-    buildEnemies(3);
+    //buildEnemies(3);
 
 });
 
@@ -166,6 +255,7 @@ $(function() {
 // Player.handleInput() method. You don't need to modify this.
 document.addEventListener('keyup', function(e) {
     var allowedKeys = {
+        13: 'enter',
         37: 'left',
         38: 'up',
         39: 'right',
@@ -173,4 +263,6 @@ document.addEventListener('keyup', function(e) {
     };
 
     player.handleInput(allowedKeys[e.keyCode]);
+    console.log('modal:',modal);
+    modal.handleInput(allowedKeys[e.keyCode]);
 });
