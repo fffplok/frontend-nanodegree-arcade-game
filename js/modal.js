@@ -29,7 +29,7 @@ var modal = (function() {
             },
 
             handleInput: function(k) {
-                console.log('Modal.handleInput, k, this: ',k, this);
+                //console.log('Modal.handleInput, k, this: ',k, this);
                 if (modal.hasClass(MODAL_IN)) {
                     if (k === 'enter') this.modalOut();
                 }
@@ -55,7 +55,7 @@ var modal = (function() {
             },
 
             modalOut: function() {
-                //console.log('modal.modalOut, this, game: ', this, game);
+                if (modal.hasClass(MODAL_OUT)) return; //prevent click of hidden button
 
                 this.cleanCSS();
 

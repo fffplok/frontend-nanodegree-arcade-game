@@ -106,7 +106,7 @@ h1 {
   font-size: inherit;
   color: inherit;
   background: none;
-  cursor: pointer;
+  cursor: default; /*pointer;*/
   padding: 25px 80px;
   display: inline-block;
   margin: 15px 30px;

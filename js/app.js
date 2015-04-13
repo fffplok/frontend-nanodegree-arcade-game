@@ -2,7 +2,7 @@
 
 //constants
 var ROWS = 6,
-    COLS = 6,
+    COLS = 7,
     TILES_TOP = 10, //for rendering tiles so that entities position better over tile
     TILE_HEIGHT = 171,
     ROW_HEIGHT = 83,
@@ -13,6 +13,7 @@ var ROWS = 6,
 //declaration for global vars
 var player,
     allEnemies,
+    //activeTiles,
     texts,
     hearts,
     gems,
@@ -24,13 +25,45 @@ function getRandomInt(min, max) {
 
 var game = (function() {
     var level = 0,
-        tiles = [],
         speed = 1,
         lives = 3,
-        txtScore, txtLives,
+        txtScore, txtLives, tiles = [], activeTiles = [],
+
+        reset = function(delay) {
+            setTimeout(start, delay);
+        },
+
+        start = function() {
+            //when player is safe (new level), reposition dirt
+            //get newIx for dirt, then retain the x,y of Dirt and
+            // take the x,y of the Water at that position, and swap positions
+            if (player.state === 'safe') {
+                var newIx, posWasWater = [], posWasDirt = [];
+
+                newIx = getRandomInt(1, COLS-1);
+                posWasWater.push(activeTiles[newIx].x);
+                posWasWater.push(activeTiles[newIx].y);
+
+                for (var i = 1; i < activeTiles.length-1; i++) {
+                    if (activeTiles[i] instanceof Dirt) {
+                        posWasDirt.push(activeTiles[i].x);
+                        posWasDirt.push(activeTiles[i].y);
+                        activeTiles[i].x = posWasWater[0];
+                        activeTiles[i].y = posWasWater[1];
+                    }
+                }
+
+                activeTiles[newIx].x = posWasDirt[0];
+                activeTiles[newIx].y = posWasDirt[1];
+            }
+
+            player.setStartPosition();
+        },
+
         api = {
             speed: speed, //overall speed
             tiles: tiles,
+            activeTiles: activeTiles,
 
             init: function() {
                 this.buildTiles();
@@ -38,7 +71,6 @@ var game = (function() {
                 this.buildTexts();
                 this.buildEnemies();
                 player = new Player('images/char-boy.png');
-                this.setPlayerStart();
 
                 modal.modalIn({
                     header:"<h1>Effective JavaScript: Frogger</h1>",
@@ -46,14 +78,32 @@ var game = (function() {
                 });
             },
 
-            setPlayerStart: function() {
-                player.setPosition(getRandomInt(0, COLS)*COL_WIDTH, player.bottommost);
+            safe: function() {
+                player.state = 'safe';
+                texts.level.dynamic = parseInt(texts.level.dynamic) + 1;
+                reset(500);
+            },
+
+            drowned: function() {
+                player.state = 'drowned';
+                hearts.pop();
+                reset(100);
+            },
+
+            eaten: function() {
+                player.state = 'eaten';
+                if (hearts.length) hearts.pop();
+                reset(0);
+            },
+
+            blocked: function() {
+                console.log('blocked');
             },
 
             buildEnemies: function() {
                 allEnemies = []; //each call to buildEnemies refreshes enemies with new array
                 //TODO: make some more interesting way of determining how many enemies we have
-                var n = (level < 5) ? 1 : 5;
+                var n = (level < 5) ? 3 : 5;
                 for (var i = 0; i < n; i++) {
                     allEnemies.push(new Enemy('images/enemy-bug.png'));
                 }
@@ -61,7 +111,7 @@ var game = (function() {
 
             buildTexts: function() {
                 texts = {};
-                texts.score = new Text('Score: ', 19999, (COLS - 3)*COL_WIDTH, 46);
+                texts.score = new Text('Score: ', '0', (COLS - 3)*COL_WIDTH, 46);
                 texts.level = new Text('Level: ', '0', (COLS - 1)*COL_WIDTH, 46);
                 texts.timeRemaining = new Text('Time Remaining: ', '0:00', 0, (ROWS+2)*ROW_HEIGHT-36);
             },
@@ -81,7 +131,7 @@ var game = (function() {
             buildTiles: function() {
                 var row, col, dirtX,
                     rowImages = [
-                    'images/water-block.png',   // Top row is water
+                    'images/water-block.png',   // Top row is water or dirt
                     'images/stone-block.png',   // Row 1 of 3 of stone
                     'images/stone-block.png',   // Row 2 of 3 of stone
                     'images/stone-block.png',   // Row 3 of 3 of stone
@@ -91,17 +141,19 @@ var game = (function() {
 
                 dirtX = getRandomInt(1, COLS-1);
 
-                //make sure there is a color over the canvas
-                //ctx.fillStyle = '#dadad0';
-                //ctx.fillRect(0, 0, COLS * COL_WIDTH, ROWS * ROW_HEIGHT + TILE_HEIGHT);
+                //top row, water and dirt
+                for (col = 0; col < COLS; col++) {
+                    if (col === dirtX) {
+                        activeTiles.push(new Dirt('images/dirt-block.png', col * COL_WIDTH, TILES_TOP));
+                    } else {
+                        activeTiles.push(new Water('images/water-block.png', col * COL_WIDTH, TILES_TOP));
+                    }
+                }
 
-                for (row = 0; row < ROWS; row++) {
+                //remaining rows have no behavior
+                for (row = 1; row < ROWS; row++) {
                     for (col = 0; col < COLS; col++) {
-                        if (row === 0 && col === dirtX) {
-                            tiles.push(new Entity('images/dirt-block.png', col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
-                        } else {
-                            tiles.push(new Entity(rowImages[row], col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
-                        }
+                        tiles.push(new Entity(rowImages[row], col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
                     }
                 }
             }
@@ -142,6 +194,31 @@ Text.prototype.render = function() {
     ctx.fillText(this.fixed + this.dynamic, this.x, this.y);
 }
 
+// Water our player must avoid
+var Water = function(img, x, y) {
+    Entity.call(this, img, x, y);
+}
+
+Water.prototype = Object.create(Entity.prototype);
+Water.prototype.constructor = Water;
+
+Water.prototype.update = function(dt) {
+    //console.log('player:', player);
+    if (this.x === player.x && this.y === player.y+TILES_TOP && player.state !== 'drowned') game.drowned();
+}
+
+// Dirt is our player's destination
+var Dirt = function(img, x, y) {
+    Entity.call(this, img, x, y);
+}
+
+Dirt.prototype = Object.create(Entity.prototype);
+Dirt.prototype.constructor = Dirt;
+
+Dirt.prototype.update = function(dt) {
+    if (this.x === player.x && this.y === player.y+TILES_TOP && player.state !== 'safe') game.safe();
+}
+
 // Enemies our player must avoid
 var Enemy = function(img, x, y) {
     Entity.call(this, img, x, y);
@@ -165,12 +242,7 @@ Enemy.prototype.update = function(dt) {
     if (this.x > this.rightmost) this.setStartPosition();
 
     //console.log('player:', player);
-    if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y+TILES_TOP === player.y) console.log('collision!');
-}
-
-// Draw the enemy on the screen, required method for game
-Enemy.prototype.render = function() {
-    ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
+    if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y+TILES_TOP === player.y && player.state !== 'eaten') game.eaten();
 }
 
 Enemy.prototype.setSpeed = function() {
@@ -193,8 +265,10 @@ Enemy.prototype.setStartPosition = function() {
 var Player = function(img) {
     Entity.call(this, img);
 
+    this.state; //managed by game
     this.rightmost = (COLS - 1) * COL_WIDTH;
     this.bottommost = (ROWS - 1) * ROW_HEIGHT;
+    this.setStartPosition();
 }
 
 Player.prototype = Object.create(Entity.prototype);
@@ -224,14 +298,12 @@ Player.prototype.handleInput = function(k) {
         default:
             console.log('unknown keycode, k:', k);
     }
-    //Signature here?
+}
 
-/*
-    //testing only
-    if (hearts.length) {
-        hearts.pop();
-    }
-*/
+Player.prototype.setStartPosition = function() {
+    this.state = 'active';
+    this.setPosition(getRandomInt(0, COLS)*COL_WIDTH, this.bottommost);
+    console.log('Player.setStartPosition, this:', this);
 }
 
 // Now instantiate your objects.
@@ -263,6 +335,5 @@ document.addEventListener('keyup', function(e) {
     };
 
     player.handleInput(allowedKeys[e.keyCode]);
-    console.log('modal:',modal);
     modal.handleInput(allowedKeys[e.keyCode]);
 });

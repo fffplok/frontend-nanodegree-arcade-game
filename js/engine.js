@@ -94,6 +94,9 @@ var Engine = (function(global) {
      * render methods.
      */
     function updateEntities(dt) {
+        game.activeTiles.forEach(function(tile){
+            tile.update();
+        });
         allEnemies.forEach(function(enemy) {
             enemy.update(dt);
         });
@@ -119,6 +122,9 @@ var Engine = (function(global) {
      * is an instance of Entity and will render itself.
      */
     function renderBoard() {
+        game.activeTiles.forEach(function(tile) {
+            tile.render();
+        });
         game.tiles.forEach(function(tile) {
             tile.render();
         });
