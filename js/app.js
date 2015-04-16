@@ -24,13 +24,63 @@ function getRandomInt(min, max) {
 }
 
 var game = (function() {
-    var level = 0,
+    //texts for modal window
+    var gameBeginText = {
+            header:"<h1>Effective JavaScript: Frogger</h1>",
+            body:"<p>well, so ya wanna play a game, eh?</p>"
+        },
+        drownedText = {
+            header:"<h1>Drowned</h1>",
+            body:"<p>You know you can't swim.</p>"
+        },
+        timeExpiredText = {
+            header:"<h1>Time's up!</h1>",
+            body:"<p>Try moving faster, next time.</p>"
+        },
+        eatenText = {
+            header:"<h1>Eaten by a Bug?!</h1>",
+            body:"<p>Do be more careful.</p>"
+        },
+        gameOverText = {
+            header:"<h1>Game Over</h1>",
+            body:"<p>It's been fun.</p>"
+        };
+
+    var level = 1,
         speed = 1,
         lives = 3,
-        txtScore, txtLives, tiles = [], activeTiles = [],
+        dirtIx, paused, txtScore, txtLives, tiles = [], activeTiles = [],
+        tileMatrix = [],
+
+        initMatrix = function() {
+            /*
+             * [[[x,y,0], [x,y,0], ... [x,y,0]],
+             *  [[x,y,0], [x,y,0], ... [x,y,0]],
+             *              ...
+             *  [[x,y,0], [x,y,0], ... [x,y,0]]]
+             */
+            var row, col, arr;
+            for (row = 0; row < ROWS; row++) {
+                arr = [];
+                for (col = 0; col < COLS; col++) {
+                    arr.push([col*COL_WIDTH, row*ROW_HEIGHT + TILES_TOP, 0]); //x, y and whether occupied
+                    //arr.push([col*COL_WIDTH, row*ROW_HEIGHT, 0]); //x, y and whether occupied
+                }
+                tileMatrix.push(arr.slice(0));
+            }
+        },
 
         reset = function(delay) {
             setTimeout(start, delay);
+        },
+
+        //TODO: decide how to manage pause and resume
+        pause = function() {
+            paused = true;
+        },
+
+        resume = function() {
+            paused = false;
         },
 
         start = function() {
@@ -55,7 +105,11 @@ var game = (function() {
 
                 activeTiles[newIx].x = posWasDirt[0];
                 activeTiles[newIx].y = posWasDirt[1];
+
+                api.buildStones();
+                api.buildEnemies();
             }
+
 
             player.setStartPosition();
         },
@@ -64,36 +118,54 @@ var game = (function() {
             speed: speed, //overall speed
             tiles: tiles,
             activeTiles: activeTiles,
+            paused: paused,
+            activeTiles: activeTiles, //TEMP ONLY!! for testing
 
             init: function() {
+                initMatrix();
+                console.log('tileMatrix:', tileMatrix);
                 this.buildTiles();
                 this.buildHearts();
                 this.buildTexts();
-                this.buildEnemies();
+                this.buildStones();
                 player = new Player('images/char-boy.png');
+                this.buildEnemies();
 
                 modal.modalIn({
-                    header:"<h1>Effective JavaScript: Frogger</h1>",
-                    body:"<p>well, so ya wanna play a game, eh?</p>"
+                    header: gameBeginText.header,
+                    body: gameBeginText.body
                 });
             },
 
             safe: function() {
                 player.state = 'safe';
-                texts.level.dynamic = parseInt(texts.level.dynamic) + 1;
+                texts.level.dynamic = ++level; //parseInt(texts.level.dynamic) + 1;
                 reset(500);
             },
 
             drowned: function() {
                 player.state = 'drowned';
                 hearts.pop();
+                //pause();
                 reset(100);
+
+                modal.modalIn({
+                    header: drownedText.header,
+                    body: drownedText.body
+                });
+
             },
 
             eaten: function() {
                 player.state = 'eaten';
                 if (hearts.length) hearts.pop();
                 reset(0);
+
+                modal.modalIn({
+                    header: eatenText.header,
+                    body: eatenText.body
+                });
+
             },
 
             blocked: function() {
@@ -103,7 +175,9 @@ var game = (function() {
             buildEnemies: function() {
                 allEnemies = []; //each call to buildEnemies refreshes enemies with new array
                 //TODO: make some more interesting way of determining how many enemies we have
-                var n = (level < 5) ? 3 : 5;
+                console.log('buildEnemies, level:', level);
+                var n = (level < 3) ? 3 : 5;
+                n = 2;
                 for (var i = 0; i < n; i++) {
                     allEnemies.push(new Enemy('images/enemy-bug.png'));
                 }
@@ -128,8 +202,25 @@ var game = (function() {
                 }
             },
 
+            buildStones: function() {
+                stones = [];
+                var x, y, count = Math.floor(level/3);
+
+                for (i = 0; i < count; i++) {
+                    x = getRandomInt(0, COLS) * COL_WIDTH;
+                    y = getRandomInt(1, ROWS-2) * ROW_HEIGHT - TILES_TOP,
+                    xDirt = activeTiles[dirtIx].x,
+                    yDirt = activeTiles[dirtIx].y;
+
+                    //prevent stone from blocking path to dirt
+                    if (!(x === xDirt && y === yDirt - 2 * TILES_TOP + ROW_HEIGHT )) {
+                        stones.push(new Stone('images/Rock.png', x, y));
+                    }
+                }
+            },
+
             buildTiles: function() {
-                var row, col, dirtX,
+                var row, col, // dirtX,
                     rowImages = [
                     'images/water-block.png',   // Top row is water or dirt
                     'images/stone-block.png',   // Row 1 of 3 of stone
@@ -139,21 +230,26 @@ var game = (function() {
                     'images/grass-block.png'    // Row 2 of 2 of grass
                 ];
 
-                dirtX = getRandomInt(1, COLS-1);
+                //retain index to dirt tile so stone will not be positioned immediately below it
+                dirtIx = getRandomInt(1, COLS-1);
 
-                //top row, water and dirt
+                //top row, water and dirt. water is to be avoided, dirt is the destination.
                 for (col = 0; col < COLS; col++) {
-                    if (col === dirtX) {
-                        activeTiles.push(new Dirt('images/dirt-block.png', col * COL_WIDTH, TILES_TOP));
+                    if (col === dirtIx) {
+                        //activeTiles.push(new Dirt('images/dirt-block.png', col * COL_WIDTH, TILES_TOP));
+                        console.log('tileMatrix[col][0]:',tileMatrix[col][0]);
+                        activeTiles.push(new Dirt('images/dirt-block.png', tileMatrix[0][col][0], tileMatrix[0][col][1]));
                     } else {
-                        activeTiles.push(new Water('images/water-block.png', col * COL_WIDTH, TILES_TOP));
+                        //activeTiles.push(new Water('images/water-block.png', col * COL_WIDTH, TILES_TOP));
+                        activeTiles.push(new Water('images/water-block.png', tileMatrix[0][col][0], tileMatrix[0][col][1]));
                     }
                 }
 
                 //remaining rows have no behavior
                 for (row = 1; row < ROWS; row++) {
                     for (col = 0; col < COLS; col++) {
-                        tiles.push(new Entity(rowImages[row], col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
+                        //tiles.push(new Entity(rowImages[row], col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
+                        tiles.push(new Entity(rowImages[row], tileMatrix[row][col][0], tileMatrix[row][col][1]));
                     }
                 }
             }
@@ -219,6 +315,29 @@ Dirt.prototype.update = function(dt) {
     if (this.x === player.x && this.y === player.y+TILES_TOP && player.state !== 'safe') game.safe();
 }
 
+var Stone = function(img, x, y) {
+    Entity.call(this, img, x, y);
+}
+
+Stone.prototype = Object.create(Entity.prototype);
+Stone.prototype.constructor = Stone;
+
+Stone.prototype.update = function(dt) {
+    if ((this.x === player.x) && (this.y+TILES_TOP === player.y)) player.blocked();
+}
+
+var Gem = function(img, x, y) {
+    Entity.call(this, img, x, y);
+    this.rightmost = COLS * COL_WIDTH;
+}
+
+Gem.prototype = Object.create(Entity.prototype);
+Gem.prototype.constructor = Stone;
+
+Gem.prototype.update = function(dt) {
+    //if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y+TILES_TOP === player.y && player.state !== 'eaten') game.gemAcquired();
+}
+
 // Enemies our player must avoid
 var Enemy = function(img, x, y) {
     Entity.call(this, img, x, y);
@@ -265,7 +384,9 @@ Enemy.prototype.setStartPosition = function() {
 var Player = function(img) {
     Entity.call(this, img);
 
-    this.state; //managed by game
+    this.state; //managed by player and game
+    this.oldX;
+    this.oldY;
     this.rightmost = (COLS - 1) * COL_WIDTH;
     this.bottommost = (ROWS - 1) * ROW_HEIGHT;
     this.setStartPosition();
@@ -280,6 +401,8 @@ Player.prototype.update = function(dt) {
 
 Player.prototype.handleInput = function(k) {
     //console.log('Player.handleInput, k:', k);
+    this.oldX = this.x;
+    this.oldY = this.y;
     switch(k) {
         case 'up':
             //y must be between 0 and 405 (83 x number of rows-1), y offset is -10
@@ -300,10 +423,15 @@ Player.prototype.handleInput = function(k) {
     }
 }
 
+Player.prototype.blocked = function() {
+    this.x = this.oldX;
+    this.y = this.oldY;
+}
+
 Player.prototype.setStartPosition = function() {
-    this.state = 'active';
+    this.state = 'born';
     this.setPosition(getRandomInt(0, COLS)*COL_WIDTH, this.bottommost);
-    console.log('Player.setStartPosition, this:', this);
+    //console.log('Player.setStartPosition, this:', this);
 }
 
 // Now instantiate your objects.
@@ -337,3 +465,5 @@ document.addEventListener('keyup', function(e) {
     player.handleInput(allowedKeys[e.keyCode]);
     modal.handleInput(allowedKeys[e.keyCode]);
 });
+
+

@@ -59,7 +59,7 @@ h1 {
   max-width: 960px;
   */
   /* to align at top, had to use negative top margin equal to line-height */
-  margin: 0 auto; /*  -1.2rem auto 0 auto;*/
+  margin: -2rem auto; /*  -1.2rem auto 0 auto;*/
 
 }
 

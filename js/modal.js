@@ -1,11 +1,4 @@
 var modal = (function() {
-/*        var button = document.getElementById('onward'),
-        modal = document.querySelector('.modal'),
-        bkg = document.querySelector('.modal-bkg'),
-        header = document.querySelector('.modal-header'),
-        body = document.querySelector('.modal-body'),
-        footer = document.querySelector('.modal-footer'),
-*/
         var button, modal, bkg, header, body, footer;
 
         //constants identifying css animation
@@ -60,7 +53,8 @@ var modal = (function() {
                 this.cleanCSS();
 
                 //TODO: what happens here depends on the state of the game
-                Engine.main();
+                console.log('player:', player);
+                if (player.state === 'born') Engine.main();
 
                 //apply classes for css animation
                 modal.addClass(MODAL_OUT);

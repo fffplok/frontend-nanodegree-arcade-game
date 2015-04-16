@@ -97,6 +97,9 @@ var Engine = (function(global) {
         game.activeTiles.forEach(function(tile){
             tile.update();
         });
+        stones.forEach(function(stone) {
+            stone.update();
+        })
         allEnemies.forEach(function(enemy) {
             enemy.update(dt);
         });
@@ -144,6 +147,9 @@ var Engine = (function(global) {
         hearts.forEach(function(heart) {
             heart.render();
         });
+        stones.forEach(function(stone){
+            stone.render();
+        });
         allEnemies.forEach(function(enemy) {
             enemy.render();
         });
@@ -170,6 +176,7 @@ var Engine = (function(global) {
         'images/grass-block.png',
         'images/enemy-bug.png',
         'images/char-boy.png',
+        'images/Rock.png',
         'images/Heart.png',
         'images/heart-small.png'
     ]);
