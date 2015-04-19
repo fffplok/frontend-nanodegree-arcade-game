@@ -150,6 +150,9 @@ var Engine = (function(global) {
         stones.forEach(function(stone){
             stone.render();
         });
+        gems.forEach(function(gem){
+            gem.render();
+        });
         allEnemies.forEach(function(enemy) {
             enemy.render();
         });
@@ -176,10 +179,14 @@ var Engine = (function(global) {
         'images/grass-block.png',
         'images/enemy-bug.png',
         'images/char-boy.png',
-        'images/Rock.png',
-        'images/Heart.png',
-        'images/heart-small.png'
+        'images/rock.png',
+        'images/heart.png',
+        'images/heart-small.png',
+        'images/gem-blue.png',
+        'images/gem-green.png',
+        'images/gem-orange.png'
     ]);
+
     Resources.onReady(init);
     //Resources.onReady(game.init);
 

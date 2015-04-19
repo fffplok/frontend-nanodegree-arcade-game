@@ -1,9 +1,9 @@
 //images are 101x171, but overlap, from resources, find 83 as row interval
+//I wanted to position images nicely over tiles: tried an offset but didn't like the extra scripting required, so republished images to line up as desired without programmatic offsets
 
 //constants
 var ROWS = 6,
     COLS = 7,
-    TILES_TOP = 10, //for rendering tiles so that entities position better over tile
     TILE_HEIGHT = 171,
     ROW_HEIGHT = 83,
     COL_WIDTH = 101,
@@ -63,12 +63,34 @@ var game = (function() {
             for (row = 0; row < ROWS; row++) {
                 arr = [];
                 for (col = 0; col < COLS; col++) {
-                    arr.push([col*COL_WIDTH, row*ROW_HEIGHT + TILES_TOP, 0]); //x, y and whether occupied
-                    //arr.push([col*COL_WIDTH, row*ROW_HEIGHT, 0]); //x, y and whether occupied
+                    arr.push([col*COL_WIDTH, row*ROW_HEIGHT, 0]); //x, y and whether occupied
                 }
                 tileMatrix.push(arr.slice(0));
             }
         },
+
+        resetMatrix = function() {
+            var row, col;
+            for (row = 0; row < ROWS; row++) {
+                for (col = 0; col < COLS; col++) {
+                    tileMatrix[row][col][2] = 0; //set occupied to 0 for all tiles
+                }
+            }
+        },
+
+        matrixFull = function() {
+            var row, col, doOuterLoop = true; full = true;
+            for (row = 0; doOuterLoop && row < ROWS; row++) {
+                for (col = 0; col < COLS; col++) {
+                    if (!tileMatrix[row][col][2]) {
+                        full = false;
+                        doOuterLoop = false;
+                        break;
+                    }
+                }
+            }
+            return full;
+        }
 
         reset = function(delay) {
             setTimeout(start, delay);
@@ -90,6 +112,8 @@ var game = (function() {
             if (player.state === 'safe') {
                 var newIx, posWasWater = [], posWasDirt = [];
 
+                resetMatrix();
+
                 newIx = getRandomInt(1, COLS-1);
                 posWasWater.push(activeTiles[newIx].x);
                 posWasWater.push(activeTiles[newIx].y);
@@ -107,6 +131,7 @@ var game = (function() {
                 activeTiles[newIx].y = posWasDirt[1];
 
                 api.buildStones();
+                api.buildGems();
                 api.buildEnemies();
             }
 
@@ -123,11 +148,12 @@ var game = (function() {
 
             init: function() {
                 initMatrix();
-                console.log('tileMatrix:', tileMatrix);
+                //console.log('tileMatrix:', tileMatrix);
                 this.buildTiles();
                 this.buildHearts();
                 this.buildTexts();
                 this.buildStones();
+                this.buildGems();
                 player = new Player('images/char-boy.png');
                 this.buildEnemies();
 
@@ -175,9 +201,9 @@ var game = (function() {
             buildEnemies: function() {
                 allEnemies = []; //each call to buildEnemies refreshes enemies with new array
                 //TODO: make some more interesting way of determining how many enemies we have
-                console.log('buildEnemies, level:', level);
+                //console.log('buildEnemies, level:', level);
                 var n = (level < 3) ? 3 : 5;
-                n = 2;
+                n - 2;
                 for (var i = 0; i < n; i++) {
                     allEnemies.push(new Enemy('images/enemy-bug.png'));
                 }
@@ -185,16 +211,16 @@ var game = (function() {
 
             buildTexts: function() {
                 texts = {};
-                texts.score = new Text('Score: ', '0', (COLS - 3)*COL_WIDTH, 46);
-                texts.level = new Text('Level: ', '0', (COLS - 1)*COL_WIDTH, 46);
-                texts.timeRemaining = new Text('Time Remaining: ', '0:00', 0, (ROWS+2)*ROW_HEIGHT-36);
+                texts.score = new Text('Score: ', '0', (COLS - 3)*COL_WIDTH, 35);
+                texts.level = new Text('Level: ', '0', (COLS - 1)*COL_WIDTH, 35);
+                texts.timeRemaining = new Text('Time Remaining: ', '0:00', 0, (ROWS+2)*ROW_HEIGHT-45);
             },
 
             buildHearts: function() {
                 hearts = [];
                 var i,
                     x = 10,
-                    y = 10,
+                    y = 5,
                     w = 40;
                 for (i = 0; i < lives; i++) {
                    hearts.push(new Entity('images/heart-small.png', x, y));
@@ -204,17 +230,47 @@ var game = (function() {
 
             buildStones: function() {
                 stones = [];
-                var x, y, count = Math.floor(level/3);
+                var x, y, row, col, count = Math.floor(level/3);
 
                 for (i = 0; i < count; i++) {
                     x = getRandomInt(0, COLS) * COL_WIDTH;
-                    y = getRandomInt(1, ROWS-2) * ROW_HEIGHT - TILES_TOP,
+                    y = getRandomInt(1, ROWS-2) * ROW_HEIGHT;
                     xDirt = activeTiles[dirtIx].x,
                     yDirt = activeTiles[dirtIx].y;
+                    row = y/ROW_HEIGHT;
+                    col = x/COL_WIDTH;
+
+                    console.log('buildStones, col, row:', col, row);
 
                     //prevent stone from blocking path to dirt
-                    if (!(x === xDirt && y === yDirt - 2 * TILES_TOP + ROW_HEIGHT )) {
-                        stones.push(new Stone('images/Rock.png', x, y));
+                    if (!(x === xDirt && y === yDirt + ROW_HEIGHT )) {
+                        stones.push(new Stone('images/rock.png', x, y));
+                        tileMatrix[row][col][2] = 1; //mark tile occupied
+                    }
+                }
+            },
+
+            buildGems: function() {
+                gems = [];
+                var x, y, row, col, gemCount = 0, count = Math.floor(level/3);
+
+                while (gemCount < count) {
+                    //TODO: I don't like running matrixFull. come up with a way of limiting objects on tiles.
+                    //unlikely, but possible that tiles be covered entirely by objects. ensure program doesn't hang
+                    if (matrixFull()) break;
+
+                    x = getRandomInt(0, COLS) * COL_WIDTH;
+                    y = getRandomInt(1, ROWS-2) * ROW_HEIGHT;
+                    row = y/ROW_HEIGHT;
+                    col = x/COL_WIDTH;
+
+                    console.log('buildGems, col, row:', col, row);
+
+
+                    if (!tileMatrix[row][col][2]) {
+                        gems.push(new Gem('images/gem-green.png', x, y));
+                        tileMatrix[row][col][2] = 1; //mark tile occupied
+                        gemCount++;
                     }
                 }
             },
@@ -236,11 +292,8 @@ var game = (function() {
                 //top row, water and dirt. water is to be avoided, dirt is the destination.
                 for (col = 0; col < COLS; col++) {
                     if (col === dirtIx) {
-                        //activeTiles.push(new Dirt('images/dirt-block.png', col * COL_WIDTH, TILES_TOP));
-                        console.log('tileMatrix[col][0]:',tileMatrix[col][0]);
                         activeTiles.push(new Dirt('images/dirt-block.png', tileMatrix[0][col][0], tileMatrix[0][col][1]));
                     } else {
-                        //activeTiles.push(new Water('images/water-block.png', col * COL_WIDTH, TILES_TOP));
                         activeTiles.push(new Water('images/water-block.png', tileMatrix[0][col][0], tileMatrix[0][col][1]));
                     }
                 }
@@ -248,7 +301,6 @@ var game = (function() {
                 //remaining rows have no behavior
                 for (row = 1; row < ROWS; row++) {
                     for (col = 0; col < COLS; col++) {
-                        //tiles.push(new Entity(rowImages[row], col * COL_WIDTH, row * ROW_HEIGHT + TILES_TOP));
                         tiles.push(new Entity(rowImages[row], tileMatrix[row][col][0], tileMatrix[row][col][1]));
                     }
                 }
@@ -300,7 +352,7 @@ Water.prototype.constructor = Water;
 
 Water.prototype.update = function(dt) {
     //console.log('player:', player);
-    if (this.x === player.x && this.y === player.y+TILES_TOP && player.state !== 'drowned') game.drowned();
+    if (this.x === player.x && this.y === player.y && player.state !== 'drowned') game.drowned();
 }
 
 // Dirt is our player's destination
@@ -312,7 +364,7 @@ Dirt.prototype = Object.create(Entity.prototype);
 Dirt.prototype.constructor = Dirt;
 
 Dirt.prototype.update = function(dt) {
-    if (this.x === player.x && this.y === player.y+TILES_TOP && player.state !== 'safe') game.safe();
+    if (this.x === player.x && this.y === player.y && player.state !== 'safe') game.safe();
 }
 
 var Stone = function(img, x, y) {
@@ -323,7 +375,7 @@ Stone.prototype = Object.create(Entity.prototype);
 Stone.prototype.constructor = Stone;
 
 Stone.prototype.update = function(dt) {
-    if ((this.x === player.x) && (this.y+TILES_TOP === player.y)) player.blocked();
+    if ((this.x === player.x) && (this.y === player.y)) player.blocked();
 }
 
 var Gem = function(img, x, y) {
@@ -332,10 +384,10 @@ var Gem = function(img, x, y) {
 }
 
 Gem.prototype = Object.create(Entity.prototype);
-Gem.prototype.constructor = Stone;
+Gem.prototype.constructor = Gem;
 
 Gem.prototype.update = function(dt) {
-    //if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y+TILES_TOP === player.y && player.state !== 'eaten') game.gemAcquired();
+    //if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.gemAcquired();
 }
 
 // Enemies our player must avoid
@@ -361,7 +413,7 @@ Enemy.prototype.update = function(dt) {
     if (this.x > this.rightmost) this.setStartPosition();
 
     //console.log('player:', player);
-    if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y+TILES_TOP === player.y && player.state !== 'eaten') game.eaten();
+    if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.eaten();
 }
 
 Enemy.prototype.setSpeed = function() {
@@ -370,7 +422,7 @@ Enemy.prototype.setSpeed = function() {
 
 Enemy.prototype.setStartPosition = function() {
     this.x = getRandomInt(1, 4) * COL_WIDTH * -1; //off canvas to left
-    this.y = getRandomInt(1, 4) * ROW_HEIGHT - TILES_TOP; //any of the stone block tiled rows
+    this.y = getRandomInt(1, 4) * ROW_HEIGHT; //any of the stone block tiled rows
 }
 
 
@@ -419,7 +471,7 @@ Player.prototype.handleInput = function(k) {
             if (this.x < this.rightmost) this.x += COL_WIDTH;
             break;
         default:
-            console.log('unknown keycode, k:', k);
+            //console.log('unknown keycode, k:', k);
     }
 }
 
