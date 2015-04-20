@@ -8,7 +8,8 @@ var ROWS = 6,
     ROW_HEIGHT = 83,
     COL_WIDTH = 101,
     MIN_SPEED = 25,
-    MAX_SPEED = 200;
+    MAX_SPEED = 200,
+    TIME_ALLOWED = 120000; //milliseconds
 
 //declaration for global vars
 var player,
@@ -17,10 +18,17 @@ var player,
     texts,
     hearts,
     gems,
-    stones;
+    stones,
+    idGameInterval;
 
 function getRandomInt(min, max) {
    return Math.floor(Math.random() * (max - min)) + min;
+}
+
+//the function passed to setTimeout to count down time allowed for a level of play
+function updateTime(start) {
+    var now = Date.now();
+    game.updateRemainingTime(now - start);
 }
 
 var game = (function() {
@@ -47,11 +55,12 @@ var game = (function() {
         };
 
     var level = 1,
+        score = 0,
         speed = 1,
         lives = 3,
         dirtIx, paused, txtScore, txtLives, tiles = [], activeTiles = [],
+        timeStart, //idGameTimeout,
         tileMatrix = [],
-
         initMatrix = function() {
             /*
              * [[[x,y,0], [x,y,0], ... [x,y,0]],
@@ -94,15 +103,6 @@ var game = (function() {
 
         reset = function(delay) {
             setTimeout(start, delay);
-        },
-
-        //TODO: decide how to manage pause and resume
-        pause = function() {
-            paused = true;
-        },
-
-        resume = function() {
-            paused = false;
         },
 
         start = function() {
@@ -156,6 +156,7 @@ var game = (function() {
                 this.buildGems();
                 player = new Player('images/char-boy.png');
                 this.buildEnemies();
+                this.updateRemainingTime(0);
 
                 modal.modalIn({
                     header: gameBeginText.header,
@@ -198,6 +199,35 @@ var game = (function() {
                 console.log('blocked');
             },
 
+            initTimer: function() {
+                timeStart = Date.now();
+                idGameInterval = window.setInterval(updateTime, 1000, timeStart);
+            },
+
+            updateRemainingTime: function(ms) {
+                var mins, sTime,
+                    secs = Math.ceil((TIME_ALLOWED - ms)/1000),
+                    formatter = function(n) {
+                        var s = (n < 10) ? '0' + n : '' + n;
+                        return s;
+                    };
+
+                mins = formatter(Math.floor(secs/60));
+                secs = formatter(secs % 60);
+                sTime = mins + ':' + secs;
+
+                texts.timeRemaining.dynamic = sTime;
+
+                if (ms >= TIME_ALLOWED) {
+                    clearInterval(idGameInterval);
+                    this.timeExpired();
+                }
+            },
+
+            timeExpired: function() {
+                console.log('game.timeExpired')
+            },
+
             buildEnemies: function() {
                 allEnemies = []; //each call to buildEnemies refreshes enemies with new array
                 //TODO: make some more interesting way of determining how many enemies we have
@@ -211,9 +241,13 @@ var game = (function() {
 
             buildTexts: function() {
                 texts = {};
-                texts.score = new Text('Score: ', '0', (COLS - 3)*COL_WIDTH, 35);
-                texts.level = new Text('Level: ', '0', (COLS - 1)*COL_WIDTH, 35);
-                texts.timeRemaining = new Text('Time Remaining: ', '0:00', 0, (ROWS+2)*ROW_HEIGHT-45);
+                //texts.score = new Text('Score: ', '0', (COLS - 3)*COL_WIDTH, 35);
+                texts.score = new Text('Score: ', score, (COLS - 3)*COL_WIDTH, 35);
+                //texts.level = new Text('Level: ', '0', (COLS - 1)*COL_WIDTH, 35);
+                texts.level = new Text('Level: ', level, (COLS - 1)*COL_WIDTH, 35);
+                texts.timeRemaining = new Text('Time Remaining: ', '00:00', 0, (ROWS+2)*ROW_HEIGHT-45);
+
+                console.log('buildTexts, texts:', texts);
             },
 
             buildHearts: function() {
@@ -330,16 +364,17 @@ Entity.prototype.setPosition = function(x, y) {
 var Text = function(fixed, dynamic, x, y) {
     Entity.call(this, null, x, y);
     this.fixed = fixed;
-    this.dynamic = dynamic || '';
+    this.dynamic = dynamic; // || '';
 }
 
 Text.prototype = Object.create(Entity.prototype);
 Text.prototype.constructor = Text;
 
-Text.prototype.render = function() {
+Text.prototype.render = function(s) {
     ctx.font = '24px "Averia Libre", cursive'; //danger, need fallback font
     ctx.fillStyle = '#000'; //TODO: choose color
-    ctx.fillText(this.fixed + this.dynamic, this.x, this.y);
+    if (s) console.log('text.render, s:', s);
+    ctx.fillText(this.fixed + (s || this.dynamic), this.x, this.y);
 }
 
 // Water our player must avoid
