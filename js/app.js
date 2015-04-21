@@ -19,16 +19,24 @@ var player,
     hearts,
     gems,
     stones,
+    dTime = 0,
+    curTimeAllowed = TIME_ALLOWED,
     idGameInterval;
 
 function getRandomInt(min, max) {
    return Math.floor(Math.random() * (max - min)) + min;
 }
 
-//the function passed to setTimeout to count down time allowed for a level of play
+//the function passed to setTimeout to count down time allowed. TODO: decide if for gameplay or per life
 function updateTime(start) {
     var now = Date.now();
-    game.updateRemainingTime(now - start);
+    dTime = now - start;
+    game.displayRemainingTime();
+    if (dTime >= curTimeAllowed) {
+        clearInterval(idGameInterval);
+        curTimeAllowed = TIME_ALLOWED;
+        dTime = 0;
+    }
 }
 
 var game = (function() {
@@ -58,8 +66,8 @@ var game = (function() {
         score = 0,
         speed = 1,
         lives = 3,
-        dirtIx, paused, txtScore, txtLives, tiles = [], activeTiles = [],
-        timeStart, //idGameTimeout,
+        paused = true,
+        dirtIx, txtScore, txtLives, tiles = [], activeTiles = [],
         tileMatrix = [],
         initMatrix = function() {
             /*
@@ -156,7 +164,7 @@ var game = (function() {
                 this.buildGems();
                 player = new Player('images/char-boy.png');
                 this.buildEnemies();
-                this.updateRemainingTime(0);
+                this.displayRemainingTime();
 
                 modal.modalIn({
                     header: gameBeginText.header,
@@ -200,13 +208,14 @@ var game = (function() {
             },
 
             initTimer: function() {
-                timeStart = Date.now();
-                idGameInterval = window.setInterval(updateTime, 1000, timeStart);
+                var now = Date.now();
+                idGameInterval = window.setInterval(updateTime, 1000, now);
             },
 
-            updateRemainingTime: function(ms) {
+            displayRemainingTime: function() {
+                //console.log('displayRemainingTime, dTime, curTimeAllowed: ', dTime, curTimeAllowed);
                 var mins, sTime,
-                    secs = Math.ceil((TIME_ALLOWED - ms)/1000),
+                    secs = Math.ceil((curTimeAllowed - dTime)/1000),
                     formatter = function(n) {
                         var s = (n < 10) ? '0' + n : '' + n;
                         return s;
@@ -217,15 +226,22 @@ var game = (function() {
                 sTime = mins + ':' + secs;
 
                 texts.timeRemaining.dynamic = sTime;
-
-                if (ms >= TIME_ALLOWED) {
-                    clearInterval(idGameInterval);
-                    this.timeExpired();
-                }
             },
 
             timeExpired: function() {
                 console.log('game.timeExpired')
+            },
+
+            pause: function() {
+                curTimeAllowed = curTimeAllowed - dTime;
+                dTime = 0;
+                clearInterval(idGameInterval);
+                paused = true;
+            },
+
+            resume: function() {
+                this.paused = false;
+                this.initTimer();
             },
 
             buildEnemies: function() {
@@ -444,11 +460,14 @@ Enemy.prototype.update = function(dt) {
     // You should multiply any movement by the dt parameter
     // which will ensure the game runs at the same speed for
     // all computers.
-    this.x += dt * this.speed * game.speed;
-    if (this.x > this.rightmost) this.setStartPosition();
+    //console.log('enemy update, game.paused:', game.paused);
+    if (!game.paused) {
+        this.x += dt * this.speed * game.speed;
+        if (this.x > this.rightmost) this.setStartPosition();
 
-    //console.log('player:', player);
-    if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.eaten();
+        //console.log('player:', player);
+        if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.eaten();
+    }
 }
 
 Enemy.prototype.setSpeed = function() {

@@ -46,8 +46,7 @@ var modal = (function() {
                 modal.addClass(MODAL_IN);
                 dialog.removeClass(HIDDEN).addClass(DIALOG_IN);
 
-                //first time in paused will be undefined
-                if (game.paused === false) game.paused = true;
+                game.pause();
             },
 
             modalOut: function() {
@@ -55,17 +54,12 @@ var modal = (function() {
 
                 this.cleanCSS();
 
-                //TODO: what happens here depends on the state of the game
-                //console.log('modalOut, player:', player);
-                console.log('modalOut, game:', game);
-                //if (player.state === 'born') Engine.main();
-
-                //first time in paused will be undefined. start up main loop
-                if (game.paused === undefined) {
+                //first time in main loop needs to be started
+                if (!Engine.running) {
                     Engine.main();
-                    game.initTimer();
                 }
-                game.paused = false;
+
+                game.resume();
 
                 //apply classes for css animation
                 modal.addClass(MODAL_OUT);

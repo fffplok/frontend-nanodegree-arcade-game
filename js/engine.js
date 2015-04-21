@@ -24,7 +24,8 @@ var Engine = (function(global) {
         win = global.window,
         canvas = doc.createElement('canvas'),
         ctx = canvas.getContext('2d'),
-        lastTime;
+        lastTime,
+        running = false;
 
     canvas.width = COLS * COL_WIDTH; //707; //505;
     canvas.height = ROWS * ROW_HEIGHT + TILE_HEIGHT; // - ROW_HEIGHT; // //606;
@@ -34,6 +35,7 @@ var Engine = (function(global) {
      * and handles properly calling the update and render methods.
      */
     function main() {
+        running = true;
         /* Get our time delta information which is required if your game
          * requires smooth animation. Because everyone's computer processes
          * instructions at different speeds we need a constant value that
@@ -200,8 +202,7 @@ var Engine = (function(global) {
 
     //GG note. if we wanted a variable Engine, we need to return something
     return {
-        init: init,
         main: main,
-        render: render
+        running: running
     }
 })(this);
