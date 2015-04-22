@@ -162,8 +162,8 @@ var game = (function() {
                 this.buildTexts();
                 this.buildStones();
                 this.buildGems();
-                player = new Player('images/char-boy.png');
                 this.buildEnemies();
+                player = new Player('images/char-boy.png');
                 this.displayRemainingTime();
 
                 modal.modalIn({
@@ -236,7 +236,7 @@ var game = (function() {
                 curTimeAllowed = curTimeAllowed - dTime;
                 dTime = 0;
                 clearInterval(idGameInterval);
-                paused = true;
+                this.paused = true;
             },
 
             resume: function() {
@@ -296,6 +296,7 @@ var game = (function() {
                     if (!(x === xDirt && y === yDirt + ROW_HEIGHT )) {
                         stones.push(new Stone('images/rock.png', x, y));
                         tileMatrix[row][col][2] = 1; //mark tile occupied
+                        tileMatrix[row][col][2][3] = stones[stones.length-1]; //keep reference to stone
                     }
                 }
             },
@@ -316,10 +317,10 @@ var game = (function() {
 
                     console.log('buildGems, col, row:', col, row);
 
-
                     if (!tileMatrix[row][col][2]) {
                         gems.push(new Gem('images/gem-green.png', x, y));
                         tileMatrix[row][col][2] = 1; //mark tile occupied
+                        tileMatrix[row][col][3] = gems[gems.length-1]; //keep reference to gem
                         gemCount++;
                     }
                 }
@@ -460,14 +461,17 @@ Enemy.prototype.update = function(dt) {
     // You should multiply any movement by the dt parameter
     // which will ensure the game runs at the same speed for
     // all computers.
-    //console.log('enemy update, game.paused:', game.paused);
-    if (!game.paused) {
-        this.x += dt * this.speed * game.speed;
-        if (this.x > this.rightmost) this.setStartPosition();
 
-        //console.log('player:', player);
-        if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.eaten();
-    }
+    this.x += dt * this.speed * game.speed;
+    if (this.x > this.rightmost) this.setStartPosition();
+
+    //console.log('player:', player);
+    //if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.eaten();
+
+    //collision check, player. 16 is visual edge match, 36 overlaps slightly
+    if (this.x+COL_WIDTH-36 >= player.x && this.x <= player.x+COL_WIDTH-36 && this.y === player.y && player.state !== 'eaten') game.eaten();
+
+    //TODO: if we have time: collision check, stone.
 }
 
 Enemy.prototype.setSpeed = function() {
