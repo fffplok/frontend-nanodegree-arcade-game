@@ -9,7 +9,22 @@ var ROWS = 6,
     COL_WIDTH = 101,
     MIN_SPEED = 25,
     MAX_SPEED = 200,
-    TIME_ALLOWED = 120000; //milliseconds
+    TIME_ALLOWED = 120000, //milliseconds
+    GEM_INFO = {
+        blue: {
+            image: 'images/gem-blue.png',
+            value: 10
+        },
+        green: {
+            image: 'images/gem-green.png',
+            value: 20
+        },
+        orange: {
+            image: 'images/gem-orange.png',
+            value: 100
+        }
+    };
+
 
 //declaration for global vars
 var player,
@@ -64,6 +79,7 @@ var game = (function() {
 
     var level = 1,
         score = 0,
+        scoreTemp = 0,
         speed = 1,
         lives = 3,
         paused = true,
@@ -71,16 +87,17 @@ var game = (function() {
         tileMatrix = [],
         initMatrix = function() {
             /*
-             * [[[x,y,0], [x,y,0], ... [x,y,0]],
-             *  [[x,y,0], [x,y,0], ... [x,y,0]],
+             * [[[x,y,null], [x,y,null], ... [x,y,null]],
+             *  [[x,y,null], [x,y,null], ... [x,y,null]],
              *              ...
-             *  [[x,y,0], [x,y,0], ... [x,y,0]]]
+             *  [[x,y,null], [x,y,null], ... [x,y,null]]]
              */
             var row, col, arr;
             for (row = 0; row < ROWS; row++) {
                 arr = [];
                 for (col = 0; col < COLS; col++) {
-                    arr.push([col*COL_WIDTH, row*ROW_HEIGHT, 0]); //x, y and whether occupied
+                    //x, y and whether occupied, occupied by what -- TO DO: decide whether we need both for occupied
+                    arr.push([col*COL_WIDTH, row*ROW_HEIGHT, null]);
                 }
                 tileMatrix.push(arr.slice(0));
             }
@@ -90,7 +107,7 @@ var game = (function() {
             var row, col;
             for (row = 0; row < ROWS; row++) {
                 for (col = 0; col < COLS; col++) {
-                    tileMatrix[row][col][2] = 0; //set occupied to 0 for all tiles
+                    tileMatrix[row][col][2] = null; //set occupied to null
                 }
             }
         },
@@ -99,7 +116,7 @@ var game = (function() {
             var row, col, doOuterLoop = true; full = true;
             for (row = 0; doOuterLoop && row < ROWS; row++) {
                 for (col = 0; col < COLS; col++) {
-                    if (!tileMatrix[row][col][2]) {
+                    if (!(tileMatrix[row][col][2] instanceof Entity)) {
                         full = false;
                         doOuterLoop = false;
                         break;
@@ -107,17 +124,39 @@ var game = (function() {
                 }
             }
             return full;
-        }
+        },
+
+        getGemType = function() {
+            var gem, rand = Math.floor(Math.random() * 1000);
+
+            //roughly, we get blue 65%, green 25%, orange 10% of the time
+            if (rand <= 50 || rand >= 950) {
+                gem = GEM_INFO.orange;
+            } else if (rand > 175 && rand < 825) {
+                gem = GEM_INFO.blue;
+            } else {
+                //((rand > 50 && rand <= 175) || (rand < 950 && rand >= 825))
+                gem = GEM_INFO.green;
+            }
+
+            return gem;
+        },
 
         reset = function(delay) {
             setTimeout(start, delay);
         },
 
         start = function() {
+            console.log('game.start()');
             //when player is safe (new level), reposition dirt
             //get newIx for dirt, then retain the x,y of Dirt and
             // take the x,y of the Water at that position, and swap positions
             if (player.state === 'safe') {
+                score += scoreTemp;
+                scoreTemp = 0;
+
+                console.log('safe, score:', score);
+
                 var newIx, posWasWater = [], posWasDirt = [];
 
                 resetMatrix();
@@ -203,6 +242,23 @@ var game = (function() {
 
             },
 
+            gemAcquired: function(gem) {
+                scoreTemp += gem.value;
+
+                console.log('game.gemAcquired, scoreTemp:', scoreTemp);
+                var ixGem;
+                for (var i = 0; i < gems.length; i++) {
+                    if (gems[i] === gem) ixGem = i;
+                }
+                delete gems.splice(ixGem, 1);
+            },
+
+            //TEMP:
+            getTileMatrix: function() {
+                return tileMatrix;
+            },
+            //END TEMP
+
             blocked: function() {
                 console.log('blocked');
             },
@@ -249,7 +305,7 @@ var game = (function() {
                 //TODO: make some more interesting way of determining how many enemies we have
                 //console.log('buildEnemies, level:', level);
                 var n = (level < 3) ? 3 : 5;
-                n - 2;
+                n = 2; //TEMP
                 for (var i = 0; i < n; i++) {
                     allEnemies.push(new Enemy('images/enemy-bug.png'));
                 }
@@ -263,7 +319,7 @@ var game = (function() {
                 texts.level = new Text('Level: ', level, (COLS - 1)*COL_WIDTH, 35);
                 texts.timeRemaining = new Text('Time Remaining: ', '00:00', 0, (ROWS+2)*ROW_HEIGHT-45);
 
-                console.log('buildTexts, texts:', texts);
+                //console.log('buildTexts, texts:', texts);
             },
 
             buildHearts: function() {
@@ -290,20 +346,19 @@ var game = (function() {
                     row = y/ROW_HEIGHT;
                     col = x/COL_WIDTH;
 
-                    console.log('buildStones, col, row:', col, row);
+                    //console.log('buildStones, col, row:', col, row);
 
                     //prevent stone from blocking path to dirt
                     if (!(x === xDirt && y === yDirt + ROW_HEIGHT )) {
                         stones.push(new Stone('images/rock.png', x, y));
-                        tileMatrix[row][col][2] = 1; //mark tile occupied
-                        tileMatrix[row][col][2][3] = stones[stones.length-1]; //keep reference to stone
+                        tileMatrix[row][col][2] = stones[stones.length-1]; //keep reference to stone
                     }
                 }
             },
 
             buildGems: function() {
                 gems = [];
-                var x, y, row, col, gemCount = 0, count = Math.floor(level/3);
+                var x, y, row, col, gemType, gemCount = 0, count = Math.floor(level/4) + 1;
 
                 while (gemCount < count) {
                     //TODO: I don't like running matrixFull. come up with a way of limiting objects on tiles.
@@ -315,12 +370,16 @@ var game = (function() {
                     row = y/ROW_HEIGHT;
                     col = x/COL_WIDTH;
 
-                    console.log('buildGems, col, row:', col, row);
+                    //console.log('buildGems, col, row:', col, row);
 
-                    if (!tileMatrix[row][col][2]) {
-                        gems.push(new Gem('images/gem-green.png', x, y));
-                        tileMatrix[row][col][2] = 1; //mark tile occupied
-                        tileMatrix[row][col][3] = gems[gems.length-1]; //keep reference to gem
+                    //if (!tileMatrix[row][col][2]) {
+
+                    //test using instanceof to lookup the prototype chain to see if position in matrix is occupied by Stone or Gem
+                    if (!(tileMatrix[row][col][2] instanceof Entity)) {
+                        //gems.push(new Gem('images/gem-green.png', x, y));
+                        gemType = getGemType();
+                        gems.push(new Gem(gemType.image, x, y, gemType.value));
+                        tileMatrix[row][col][2] = gems[gems.length-1]; //keep reference to gem
                         gemCount++;
                     }
                 }
@@ -361,188 +420,6 @@ var game = (function() {
     return api;
 })();
 
-//All objects placed on the canvas may be a subclass of Entity.
-// each object has a sprite and x and y position. Each object can be rendered.
-var Entity = function(img, x, y) {
-    this.sprite = img;
-    this.x = x || 0;
-    this.y = y || 0;
-};
-
-Entity.prototype.render = function() {
-    ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
-};
-
-Entity.prototype.setPosition = function(x, y) {
-    this.x = x;
-    this.y = y;
-}
-
-var Text = function(fixed, dynamic, x, y) {
-    Entity.call(this, null, x, y);
-    this.fixed = fixed;
-    this.dynamic = dynamic; // || '';
-}
-
-Text.prototype = Object.create(Entity.prototype);
-Text.prototype.constructor = Text;
-
-Text.prototype.render = function(s) {
-    ctx.font = '24px "Averia Libre", cursive'; //danger, need fallback font
-    ctx.fillStyle = '#000'; //TODO: choose color
-    if (s) console.log('text.render, s:', s);
-    ctx.fillText(this.fixed + (s || this.dynamic), this.x, this.y);
-}
-
-// Water our player must avoid
-var Water = function(img, x, y) {
-    Entity.call(this, img, x, y);
-}
-
-Water.prototype = Object.create(Entity.prototype);
-Water.prototype.constructor = Water;
-
-Water.prototype.update = function(dt) {
-    //console.log('player:', player);
-    if (this.x === player.x && this.y === player.y && player.state !== 'drowned') game.drowned();
-}
-
-// Dirt is our player's destination
-var Dirt = function(img, x, y) {
-    Entity.call(this, img, x, y);
-}
-
-Dirt.prototype = Object.create(Entity.prototype);
-Dirt.prototype.constructor = Dirt;
-
-Dirt.prototype.update = function(dt) {
-    if (this.x === player.x && this.y === player.y && player.state !== 'safe') game.safe();
-}
-
-var Stone = function(img, x, y) {
-    Entity.call(this, img, x, y);
-}
-
-Stone.prototype = Object.create(Entity.prototype);
-Stone.prototype.constructor = Stone;
-
-Stone.prototype.update = function(dt) {
-    if ((this.x === player.x) && (this.y === player.y)) player.blocked();
-}
-
-var Gem = function(img, x, y) {
-    Entity.call(this, img, x, y);
-    this.rightmost = COLS * COL_WIDTH;
-}
-
-Gem.prototype = Object.create(Entity.prototype);
-Gem.prototype.constructor = Gem;
-
-Gem.prototype.update = function(dt) {
-    //if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.gemAcquired();
-}
-
-// Enemies our player must avoid
-var Enemy = function(img, x, y) {
-    Entity.call(this, img, x, y);
-    this.rightmost = COLS * COL_WIDTH;
-
-    this.setSpeed();
-    this.setStartPosition();
-}
-
-Enemy.prototype = Object.create(Entity.prototype);
-Enemy.prototype.constructor = Enemy;
-
-
-// Update the enemy's position, required method for game
-// Parameter: dt, a time delta between ticks
-Enemy.prototype.update = function(dt) {
-    // You should multiply any movement by the dt parameter
-    // which will ensure the game runs at the same speed for
-    // all computers.
-
-    this.x += dt * this.speed * game.speed;
-    if (this.x > this.rightmost) this.setStartPosition();
-
-    //console.log('player:', player);
-    //if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.eaten();
-
-    //collision check, player. 16 is visual edge match, 36 overlaps slightly
-    if (this.x+COL_WIDTH-36 >= player.x && this.x <= player.x+COL_WIDTH-36 && this.y === player.y && player.state !== 'eaten') game.eaten();
-
-    //TODO: if we have time: collision check, stone.
-}
-
-Enemy.prototype.setSpeed = function() {
-    this.speed = getRandomInt(MIN_SPEED, MAX_SPEED);
-}
-
-Enemy.prototype.setStartPosition = function() {
-    this.x = getRandomInt(1, 4) * COL_WIDTH * -1; //off canvas to left
-    this.y = getRandomInt(1, 4) * ROW_HEIGHT; //any of the stone block tiled rows
-}
-
-
-// Now write your own player class
-// This class requires an update(), render() and
-// a handleInput() method.
-
-//GG - Player does not need to have prototypal inheritance as there
-// is only one instance. Begin by copying Enemy, later may implement
-// module pattern.
-var Player = function(img) {
-    Entity.call(this, img);
-
-    this.state; //managed by player and game
-    this.oldX;
-    this.oldY;
-    this.rightmost = (COLS - 1) * COL_WIDTH;
-    this.bottommost = (ROWS - 1) * ROW_HEIGHT;
-    this.setStartPosition();
-}
-
-Player.prototype = Object.create(Entity.prototype);
-Player.prototype.constructor = Player;
-
-Player.prototype.update = function(dt) {
-    //Signature here, just one dt?
-}
-
-Player.prototype.handleInput = function(k) {
-    //console.log('Player.handleInput, k:', k);
-    this.oldX = this.x;
-    this.oldY = this.y;
-    switch(k) {
-        case 'up':
-            //y must be between 0 and 405 (83 x number of rows-1), y offset is -10
-            if (this.y >= ROW_HEIGHT) this.y -= ROW_HEIGHT;
-            break;
-        case 'down':
-            if (this.y < this.bottommost) this.y += ROW_HEIGHT;
-            break;
-        case 'left':
-            //x must be between 0 and 404 (101 x number of cols-1)
-            if (this.x >= COL_WIDTH) this.x -= COL_WIDTH;
-            break;
-        case 'right':
-            if (this.x < this.rightmost) this.x += COL_WIDTH;
-            break;
-        default:
-            //console.log('unknown keycode, k:', k);
-    }
-}
-
-Player.prototype.blocked = function() {
-    this.x = this.oldX;
-    this.y = this.oldY;
-}
-
-Player.prototype.setStartPosition = function() {
-    this.state = 'born';
-    this.setPosition(getRandomInt(0, COLS)*COL_WIDTH, this.bottommost);
-    //console.log('Player.setStartPosition, this:', this);
-}
 
 // Now instantiate your objects.
 // Place all enemy objects in an array called allEnemies

@@ -105,6 +105,9 @@ var Engine = (function(global) {
         stones.forEach(function(stone) {
             stone.update();
         })
+        gems.forEach(function(gem) {
+            gem.update(dt);
+        })
         player.update();
         allEnemies.forEach(function(enemy) {
             enemy.update(dt);
