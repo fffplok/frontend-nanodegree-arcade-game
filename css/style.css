@@ -84,6 +84,28 @@ h1 {
 */
 }
 
+.modal-content img {
+  width:3em;
+  margin: 0 5px;
+}
+
+[class*='col-'] {
+  float:left;
+  display:inline;
+  height: 4.5em;
+  padding:1.5em 3em;
+}
+
+.col-left {
+  text-align: left;
+  width: 60%;
+}
+
+.col-right {
+  width: 40%;
+  padding:0em 3em;
+}
+
 .modal-header {
 
 }

@@ -72,11 +72,10 @@ var Gem = function(img, x, y, val) {
     this.state = 'hidden';
     this.alpha = 0;
     this.value = val;
-    //this.valueCapturable = true;
     this.rightmost = COLS * COL_WIDTH;
     this.objAnimate = {
         begin: null,
-        duration: 2000
+        duration: 2500
     }
 
     var setState = function(who, state) {
@@ -97,9 +96,21 @@ Gem.prototype.render = function() {
 }
 
 Gem.prototype.update = function(dt) {
+    //some easing functions to play with
+    // https://gist.github.com/gre/1650294
+    // http://gabrieleromanato.name/javascript-implementing-the-fadein-and-fadeout-methods-without-jquery/
     var easing = {
       easeInQuad: function (t) { return t*t },
       easeOutQuad: function (t) { return t*(2-t) },
+      easeOutCubic: function (t) { return (--t)*t*t+1 },
+      easeInOutCubic: function (t) { return t<.5 ? 4*t*t*t : (t-1)*(2*t-2)*(2*t-2)+1 },
+      bounce: function (t) {
+            for (var a = 0, b = 1, result; 1; a += b, b /= 2) {
+                if (t >= (7 - 4 * a) / 11) {
+                    return -Math.pow((11 - 6 * a - 11 * t) / 4, 2) + Math.pow(b, 2);
+                }
+            }
+        }
     };
 
     switch (this.state) {
@@ -116,10 +127,10 @@ Gem.prototype.update = function(dt) {
                 };
 
             if (this.objAnimate.duration - timeRemaining > 0) {
-                this.alpha = easing.easeInQuad(progress);
+                this.alpha = easing.bounce(progress);
             } else {
                 this.state = 'visible';
-                setTimeout(setState, getRandomInt(2000, 4000), this, 'fadeOut');
+                setTimeout(setState, getRandomInt(2000, 5000), this, 'fadeOut');
             }
             break;
         case 'fadeOut':
@@ -128,9 +139,7 @@ Gem.prototype.update = function(dt) {
                 progress = timeRemaining / this.objAnimate.duration;
 
             if (this.objAnimate.duration - timeRemaining > 0) {
-                this.alpha = 1 - easing.easeOutQuad(progress);
-                //if (this.valueCapturable) this.value = Math.round(this.value * this.alpha);
-                console.log('this.value:', this.value);
+                this.alpha = 1 - easing.easeInQuad(progress);
             } else {
                 this.state = 'hidden';
             }
@@ -140,25 +149,26 @@ Gem.prototype.update = function(dt) {
     }
 
     if (this.x === player.x && this.y === player.y && this.state !== 'hidden') {
-        console.log('this.value:', this.value);
-        this.value = Math.round(this.value * this.alpha)
+        this.value = Math.round(this.value * this.alpha);
         game.gemAcquired(this);
     }
 
 }
 
 // Enemies our player must avoid
-var Enemy = function(img, x, y) {
-    Entity.call(this, img, x, y);
+var Enemy = function(img, direction, level) {
+    Entity.call(this, img);
+    //Entity.call(this, img, x, y);
     this.rightmost = COLS * COL_WIDTH;
+    this.direction = direction;
 
-    this.setSpeed();
+    //increase possible speeds by level
+    this.setSpeed(1+level/100);
     this.setStartPosition();
 }
 
 Enemy.prototype = Object.create(Entity.prototype);
 Enemy.prototype.constructor = Enemy;
-
 
 // Update the enemy's position, required method for game
 // Parameter: dt, a time delta between ticks
@@ -168,10 +178,12 @@ Enemy.prototype.update = function(dt) {
     // all computers.
 
     this.x += dt * this.speed * game.speed;
-    if (this.x > this.rightmost) this.setStartPosition();
-
-    //console.log('player:', player);
-    //if (this.x+COL_WIDTH >= player.x && this.x <= player.x+COL_WIDTH && this.y === player.y && player.state !== 'eaten') game.eaten();
+    //if (this.x > this.rightmost || this.x < 0) this.setStartPosition();
+    if (this.direction > 0 && this.x > this.rightmost) {
+        this.setStartPosition();
+    } else if (this.direction < 0 && this.x < -COL_WIDTH) {
+        this.setStartPosition();
+    }
 
     //collision check, player. 16 is visual edge match, 36 overlaps slightly
     if (this.x+COL_WIDTH-36 >= player.x && this.x <= player.x+COL_WIDTH-36 && this.y === player.y && player.state !== 'eaten') game.eaten();
@@ -179,13 +191,19 @@ Enemy.prototype.update = function(dt) {
     //TODO: if we have time: collision check, stone.
 }
 
-Enemy.prototype.setSpeed = function() {
-    this.speed = getRandomInt(MIN_SPEED, MAX_SPEED);
+Enemy.prototype.setSpeed = function(level) {
+    this.speed = this.direction * getRandomInt(MIN_SPEED, MAX_SPEED);
 }
 
 Enemy.prototype.setStartPosition = function() {
-    this.x = getRandomInt(1, 4) * COL_WIDTH * -1; //off canvas to left
-    this.y = getRandomInt(1, 4) * ROW_HEIGHT; //any of the stone block tiled rows
+    var offset = getRandomInt(1, 4) * COL_WIDTH; //distance for positioning off canvas
+    if (this.direction > 0) {
+        this.x = offset * -1; //position off canvas left
+    } else {
+        this.x = offset + this.rightmost; //position off canvas right
+    }
+
+    this.y = getRandomInt(1, 5) * ROW_HEIGHT; //position over stone or grass top row
 }
 
 

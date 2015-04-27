@@ -9,6 +9,7 @@ var ROWS = 6,
     COL_WIDTH = 101,
     MIN_SPEED = 25,
     MAX_SPEED = 200,
+    FACTOR_ENEMY = 5,
     TIME_ALLOWED = 120000, //milliseconds
     GEM_INFO = {
         blue: {
@@ -17,7 +18,7 @@ var ROWS = 6,
         },
         green: {
             image: 'images/gem-green.png',
-            value: 20
+            value: 30
         },
         orange: {
             image: 'images/gem-orange.png',
@@ -28,12 +29,12 @@ var ROWS = 6,
 
 //declaration for global vars
 var player,
-    allEnemies,
+    allEnemies = [],
     //activeTiles,
     texts,
-    hearts,
-    gems,
-    stones,
+    hearts = [],
+    gems = [],
+    stones = [],
     dTime = 0,
     curTimeAllowed = TIME_ALLOWED,
     idGameInterval;
@@ -42,34 +43,41 @@ function getRandomInt(min, max) {
    return Math.floor(Math.random() * (max - min)) + min;
 }
 
-//the function passed to setTimeout to count down time allowed. TODO: decide if for gameplay or per life
+//the function passed to setTimeout to count down time allowed.
 function updateTime(start) {
     var now = Date.now();
     dTime = now - start;
     game.displayRemainingTime();
+    if (!hearts.length) game.livesExpired();
     if (dTime >= curTimeAllowed) {
         clearInterval(idGameInterval);
         curTimeAllowed = TIME_ALLOWED;
         dTime = 0;
+        game.timeExpired();
     }
 }
-
+//"<p>well, so ya wanna play a game, eh?</p><p>&larr;&#9664;&rarr;&#9654;&uarr;&#9650;&darr;&#9660;</p>"<p>well, so ya wanna play a game, eh?</p>
 var game = (function() {
     //texts for modal window
     var gameBeginText = {
             header:"<h1>Effective JavaScript: Frogger</h1>",
-            body:"<p>well, so ya wanna play a game, eh?</p>"
+            body:"<div class='col-left'>So you want to play a game, eh?<br>Move this guy around by using your arrow keys (&#9664; &#9654; &#9650; &#9660;):</div><div class='col-right'><img src='images/char-boy.png' alt='player'></div><div class='col-left'>Before time runs out, collect as many of these as you can... wait for it! They may not appear immediately:</div><div class='col-right'><img src='images/gem-blue.png' alt='gem'><img src='images/gem-green.png' alt='gem'><img src='images/gem-orange.png' alt='gem'></div><div class='col-left'>You'll need to amble around these:</div><div class='col-right'><img src='images/rock.png' alt='stone'></div><div class='col-left'>And beware the hungry bugs:</div><div class='col-right'><img src='images/enemy-bug.png' alt='bug'><img src='images/enemy-bug-reverse.png' alt='bug'></div><div class='col-left'>Oh! And to continue the game be sure to head to dry land. You cannot swim. Good luck!</div><div class='col-right'><img src='images/dirt-block.png' alt='dirt'><img src='images/water-block.png' alt='water'></div>"
+
         },
         drownedText = {
-            header:"<h1>Drowned</h1>",
+            header:"<h1>Nearly drowned!</h1>",
             body:"<p>You know you can't swim.</p>"
         },
         timeExpiredText = {
             header:"<h1>Time's up!</h1>",
             body:"<p>Try moving faster, next time.</p>"
         },
+        livesExpiredText = {
+            header:"<h1>You died!</h1>",
+            body:"<p>So sad. But you can try again.</p>"
+        },
         eatenText = {
-            header:"<h1>Eaten by a Bug?!</h1>",
+            header:"<h1>Nearly eaten by a Bug?!</h1>",
             body:"<p>Do be more careful.</p>"
         },
         gameOverText = {
@@ -83,6 +91,7 @@ var game = (function() {
         speed = 1,
         lives = 3,
         paused = true,
+        factorEnemy = FACTOR_ENEMY,
         dirtIx, txtScore, txtLives, tiles = [], activeTiles = [],
         tileMatrix = [],
         initMatrix = function() {
@@ -96,7 +105,7 @@ var game = (function() {
             for (row = 0; row < ROWS; row++) {
                 arr = [];
                 for (col = 0; col < COLS; col++) {
-                    //x, y and whether occupied, occupied by what -- TO DO: decide whether we need both for occupied
+                    //x, y and whether occupied, occupied by what
                     arr.push([col*COL_WIDTH, row*ROW_HEIGHT, null]);
                 }
                 tileMatrix.push(arr.slice(0));
@@ -142,21 +151,17 @@ var game = (function() {
             return gem;
         },
 
+        //reset allows for a delay before restarting the game
         reset = function(delay) {
             setTimeout(start, delay);
         },
 
         start = function() {
-            console.log('game.start()');
+            console.log('game.start(), player.state:', player.state);
             //when player is safe (new level), reposition dirt
             //get newIx for dirt, then retain the x,y of Dirt and
             // take the x,y of the Water at that position, and swap positions
             if (player.state === 'safe') {
-                score += scoreTemp;
-                scoreTemp = 0;
-
-                console.log('safe, score:', score);
-
                 var newIx, posWasWater = [], posWasDirt = [];
 
                 resetMatrix();
@@ -182,7 +187,10 @@ var game = (function() {
                 api.buildEnemies();
             }
 
-
+            //restarting. scoreTemp again 0
+            scoreTemp = 0;
+            //update score. if eaten by bug after getting temporary points, temp points are lost.
+            texts.score.dynamic = score;
             player.setStartPosition();
         },
 
@@ -213,21 +221,72 @@ var game = (function() {
 
             safe: function() {
                 player.state = 'safe';
-                texts.level.dynamic = ++level; //parseInt(texts.level.dynamic) + 1;
+                score += scoreTemp;
+                texts.score.dynamic = score;
+
+                texts.level.dynamic = ++level;
                 reset(500);
+            },
+
+            timeExpired: function() {
+                score = scoreTemp = 0;
+                level = 1;
+                time = TIME_ALLOWED;
+                factorEnemy = FACTOR_ENEMY;
+                this.displayRemainingTime();
+                texts.level.dynamic = level;
+
+                this.buildHearts();
+                this.buildStones();
+                this.buildGems();
+                this.buildEnemies();
+
+                //player.state = 'timedout';
+                console.log('game.timeExpired')
+                reset(100);
+                modal.modalIn({
+                    header: timeExpiredText.header,
+                    body: timeExpiredText.body
+                });
+            },
+
+            livesExpired: function() {
+                console.log('livesExpired');
+                score = scoreTemp = 0;
+                level = 1;
+                time = TIME_ALLOWED;
+                factorEnemy = FACTOR_ENEMY;
+                this.displayRemainingTime();
+                texts.level.dynamic = level;
+
+                this.buildHearts();
+                this.buildStones();
+                this.buildGems();
+                this.buildEnemies();
+
+                //reset(100);
+                modal.modalIn({
+                    header: livesExpiredText.header,
+                    body: livesExpiredText.body
+                });
             },
 
             drowned: function() {
                 player.state = 'drowned';
                 hearts.pop();
-                //pause();
                 reset(100);
 
-                modal.modalIn({
-                    header: drownedText.header,
-                    body: drownedText.body
-                });
+                //penalty for drowning... reduce interval before new enemy introduced
+                --factorEnemy;
 
+                if (hearts.length) {
+                    modal.modalIn({
+                        header: drownedText.header,
+                        body: drownedText.body
+                    });
+                } else {
+                    this.livesExpired();
+                }
             },
 
             eaten: function() {
@@ -235,15 +294,22 @@ var game = (function() {
                 if (hearts.length) hearts.pop();
                 reset(0);
 
-                modal.modalIn({
-                    header: eatenText.header,
-                    body: eatenText.body
-                });
+                //penalty for being eaten... reduce interval before new enemy introduced
+                --factorEnemy;
 
+                if (hearts.length) {
+                    modal.modalIn({
+                        header: eatenText.header,
+                        body: eatenText.body
+                    });
+                } else {
+                    this.livesExpired();
+                }
             },
 
             gemAcquired: function(gem) {
                 scoreTemp += gem.value;
+                texts.score.dynamic = score + scoreTemp;
 
                 console.log('game.gemAcquired, scoreTemp:', scoreTemp);
                 var ixGem;
@@ -284,10 +350,6 @@ var game = (function() {
                 texts.timeRemaining.dynamic = sTime;
             },
 
-            timeExpired: function() {
-                console.log('game.timeExpired')
-            },
-
             pause: function() {
                 curTimeAllowed = curTimeAllowed - dTime;
                 dTime = 0;
@@ -301,21 +363,34 @@ var game = (function() {
             },
 
             buildEnemies: function() {
-                allEnemies = []; //each call to buildEnemies refreshes enemies with new array
-                //TODO: make some more interesting way of determining how many enemies we have
-                //console.log('buildEnemies, level:', level);
-                var n = (level < 3) ? 3 : 5;
-                n = 2; //TEMP
+                console.log('buildEnemies, level:', level);
+                //take out the trash... immediately free memory of enemy objects
+                while (allEnemies.length-1 >= 0) {
+                    delete allEnemies.pop();
+                }
+
+                //start with 2 enemies. add another every 5th level up
+                console.log('buildEnemies, factorEnemy:', factorEnemy);
+                var n = Math.floor(level/factorEnemy)+2;
+
+                //reuse getGemType to get lower probability of reverse direction bug
+                var dir, img;
                 for (var i = 0; i < n; i++) {
-                    allEnemies.push(new Enemy('images/enemy-bug.png'));
+                    dir = (getGemType() === GEM_INFO.blue) ? -1 : 1;
+                    if (getGemType() === GEM_INFO.green) {
+                        dir = -1;
+                        img = 'images/enemy-bug-reverse.png';
+                    } else {
+                        dir = 1;
+                        img = 'images/enemy-bug.png';
+                    }
+                    allEnemies.push(new Enemy(img, dir, level));
                 }
             },
 
             buildTexts: function() {
                 texts = {};
-                //texts.score = new Text('Score: ', '0', (COLS - 3)*COL_WIDTH, 35);
                 texts.score = new Text('Score: ', score, (COLS - 3)*COL_WIDTH, 35);
-                //texts.level = new Text('Level: ', '0', (COLS - 1)*COL_WIDTH, 35);
                 texts.level = new Text('Level: ', level, (COLS - 1)*COL_WIDTH, 35);
                 texts.timeRemaining = new Text('Time Remaining: ', '00:00', 0, (ROWS+2)*ROW_HEIGHT-45);
 
@@ -323,9 +398,12 @@ var game = (function() {
             },
 
             buildHearts: function() {
-                hearts = [];
+                //hearts = [];
+                while (hearts.length) {
+                    delete hearts.pop();
+                }
                 var i,
-                    x = 10,
+                    x = 20,
                     y = 5,
                     w = 40;
                 for (i = 0; i < lives; i++) {
@@ -335,29 +413,35 @@ var game = (function() {
             },
 
             buildStones: function() {
-                stones = [];
-                var x, y, row, col, count = Math.floor(level/3);
+                while (stones.length) {
+                    delete stones.pop();
+                }
+                var x, y, row, col, stoneCount = 0, count = Math.floor(level/3);
 
-                for (i = 0; i < count; i++) {
+                 while (stoneCount < count) {
+                    //unlikely, but possible that tiles be covered entirely by objects. ensure program doesn't hang
+                    if (matrixFull()) break;
+
                     x = getRandomInt(0, COLS) * COL_WIDTH;
-                    y = getRandomInt(1, ROWS-2) * ROW_HEIGHT;
+                    y = getRandomInt(1, ROWS-1) * ROW_HEIGHT;
                     xDirt = activeTiles[dirtIx].x,
                     yDirt = activeTiles[dirtIx].y;
                     row = y/ROW_HEIGHT;
                     col = x/COL_WIDTH;
 
-                    //console.log('buildStones, col, row:', col, row);
-
-                    //prevent stone from blocking path to dirt
-                    if (!(x === xDirt && y === yDirt + ROW_HEIGHT )) {
+                    //prevent stone from blocking path to dirt and test using instanceof to look up the prototype chain to see if position in matrix is occupied by Stone or Gem
+                    if (!(x === xDirt && y === yDirt + ROW_HEIGHT ) && !(tileMatrix[row][col][2] instanceof Entity)) {
                         stones.push(new Stone('images/rock.png', x, y));
                         tileMatrix[row][col][2] = stones[stones.length-1]; //keep reference to stone
+                        stoneCount++;
                     }
                 }
             },
 
             buildGems: function() {
-                gems = [];
+                while (gems.length) {
+                    delete gems.pop();
+                }
                 var x, y, row, col, gemType, gemCount = 0, count = Math.floor(level/4) + 1;
 
                 while (gemCount < count) {
@@ -366,17 +450,12 @@ var game = (function() {
                     if (matrixFull()) break;
 
                     x = getRandomInt(0, COLS) * COL_WIDTH;
-                    y = getRandomInt(1, ROWS-2) * ROW_HEIGHT;
+                    y = getRandomInt(1, ROWS-1) * ROW_HEIGHT;
                     row = y/ROW_HEIGHT;
                     col = x/COL_WIDTH;
 
-                    //console.log('buildGems, col, row:', col, row);
-
-                    //if (!tileMatrix[row][col][2]) {
-
-                    //test using instanceof to lookup the prototype chain to see if position in matrix is occupied by Stone or Gem
+                    //test using instanceof to look up the prototype chain to see if position in matrix is occupied by Stone or Gem
                     if (!(tileMatrix[row][col][2] instanceof Entity)) {
-                        //gems.push(new Gem('images/gem-green.png', x, y));
                         gemType = getGemType();
                         gems.push(new Gem(gemType.image, x, y, gemType.value));
                         tileMatrix[row][col][2] = gems[gems.length-1]; //keep reference to gem
@@ -386,7 +465,7 @@ var game = (function() {
             },
 
             buildTiles: function() {
-                var row, col, // dirtX,
+                var row, col,
                     rowImages = [
                     'images/water-block.png',   // Top row is water or dirt
                     'images/stone-block.png',   // Row 1 of 3 of stone
