@@ -163,7 +163,7 @@ var Enemy = function(img, direction, level) {
     this.direction = direction;
 
     //increase possible speeds by level
-    this.setSpeed(1+level/100);
+    this.setSpeed(1+3*level/100);
     this.setStartPosition();
 }
 

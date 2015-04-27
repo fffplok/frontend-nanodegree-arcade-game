@@ -231,8 +231,10 @@ var game = (function() {
             timeExpired: function() {
                 score = scoreTemp = 0;
                 level = 1;
-                time = TIME_ALLOWED;
+                curTimeAllowed = TIME_ALLOWED;
+                dTime = 0;
                 factorEnemy = FACTOR_ENEMY;
+                //updateTime(Date.now());
                 this.displayRemainingTime();
                 texts.level.dynamic = level;
 
@@ -254,8 +256,10 @@ var game = (function() {
                 console.log('livesExpired');
                 score = scoreTemp = 0;
                 level = 1;
-                time = TIME_ALLOWED;
+                curTimeAllowed = TIME_ALLOWED;
+                dTime = 0;
                 factorEnemy = FACTOR_ENEMY;
+                //updateTime(Date.now());
                 this.displayRemainingTime();
                 texts.level.dynamic = level;
 
