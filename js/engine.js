@@ -205,9 +205,10 @@ var Engine = (function(global) {
      */
     global.ctx = ctx;
 
-    //GG note. if we wanted a variable Engine, we need to return something
+    //GG note. To use variable Engine, we need to return something
     return {
         main: main,
         running: running
     }
+
 })(this);

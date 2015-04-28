@@ -26,7 +26,6 @@ var ROWS = 6,
         }
     };
 
-
 //declaration for global vars
 var player,
     allEnemies = [],
@@ -56,7 +55,7 @@ function updateTime(start) {
         game.timeExpired();
     }
 }
-//"<p>well, so ya wanna play a game, eh?</p><p>&larr;&#9664;&rarr;&#9654;&uarr;&#9650;&darr;&#9660;</p>"<p>well, so ya wanna play a game, eh?</p>
+
 var game = (function() {
     //texts for modal window
     var gameBeginText = {
@@ -69,11 +68,11 @@ var game = (function() {
             body:"<p>You know you can't swim.</p>"
         },
         timeExpiredText = {
-            header:"<h1>Time's up!</h1>",
-            body:"<p>Try moving faster, next time.</p>"
+            header:"<h2>Time's up!</h2>",
+            body:"<p>Try moving faster next time.</p>"
         },
         livesExpiredText = {
-            header:"<h1>You died!</h1>",
+            header:"<h2>You died!</h2>",
             body:"<p>So sad. But you can try again.</p>"
         },
         eatenText = {
@@ -82,18 +81,45 @@ var game = (function() {
         },
         gameOverText = {
             header:"<h1>Game Over</h1>",
-            body:"<p>It's been fun.</p>"
+            body:""
         };
 
     var level = 1,
         score = 0,
         scoreTemp = 0,
+        scorePossible = 0,
         speed = 1,
         lives = 3,
+        timesDrowned = 0,
+        timesEaten = 0,
         paused = true,
         factorEnemy = FACTOR_ENEMY,
         dirtIx, txtScore, txtLives, tiles = [], activeTiles = [],
         tileMatrix = [],
+
+        buildEndGameText = function(objText) {
+            var sStats = "<h3>It's been fun. Here are your statistics:</h3>",
+                sScore = "<p>You scored " + score + " of possible " + scorePossible + " points.</p>",
+                sLevel = "<p>You reached level " + level + ".</p>"
+                plural = "",
+                sEaten = "",
+                sDrowned = "";
+
+
+            if (timesEaten) {
+                plural = (timesEaten === 1) ? "" : "s";
+                var sEaten = (timesEaten === lives) ? "<p>You were wholly consumed by bugs.</p>" : "<p>You had an unpleasant encounter with a bug " + timesEaten + " time" + plural + ".</p>"
+            }
+
+            if (timesDrowned) {
+                plural = (timesDrowned === 1) ? "" : "s";
+                var sDrowned = (timesDrowned === lives) ? "<p>You drowned!</p>" : "<p>You nearly drowned " + timesDrowned + " time" + plural + ".</p>"
+            }
+
+
+            gameOverText.body = objText.header + objText.body + sStats + sScore + sEaten + sDrowned + sLevel;
+        },
+
         initMatrix = function() {
             /*
              * [[[x,y,null], [x,y,null], ... [x,y,null]],
@@ -157,7 +183,6 @@ var game = (function() {
         },
 
         start = function() {
-            console.log('game.start(), player.state:', player.state);
             //when player is safe (new level), reposition dirt
             //get newIx for dirt, then retain the x,y of Dirt and
             // take the x,y of the Water at that position, and swap positions
@@ -203,7 +228,6 @@ var game = (function() {
 
             init: function() {
                 initMatrix();
-                //console.log('tileMatrix:', tileMatrix);
                 this.buildTiles();
                 this.buildHearts();
                 this.buildTexts();
@@ -228,13 +252,13 @@ var game = (function() {
                 reset(500);
             },
 
-            timeExpired: function() {
-                score = scoreTemp = 0;
+            gameOver: function() {
+                score = scorePossible = scoreTemp = 0;
+                timesEaten = timesDrowned = 0;
                 level = 1;
                 curTimeAllowed = TIME_ALLOWED;
                 dTime = 0;
                 factorEnemy = FACTOR_ENEMY;
-                //updateTime(Date.now());
                 this.displayRemainingTime();
                 texts.level.dynamic = level;
 
@@ -243,40 +267,26 @@ var game = (function() {
                 this.buildGems();
                 this.buildEnemies();
 
-                //player.state = 'timedout';
-                console.log('game.timeExpired')
-                reset(100);
+                reset(0);
                 modal.modalIn({
-                    header: timeExpiredText.header,
-                    body: timeExpiredText.body
+                    header: gameOverText.header,
+                    body: gameOverText.body
                 });
             },
 
+            timeExpired: function() {
+                buildEndGameText(timeExpiredText);
+                this.gameOver();
+            },
+
             livesExpired: function() {
-                console.log('livesExpired');
-                score = scoreTemp = 0;
-                level = 1;
-                curTimeAllowed = TIME_ALLOWED;
-                dTime = 0;
-                factorEnemy = FACTOR_ENEMY;
-                //updateTime(Date.now());
-                this.displayRemainingTime();
-                texts.level.dynamic = level;
-
-                this.buildHearts();
-                this.buildStones();
-                this.buildGems();
-                this.buildEnemies();
-
-                //reset(100);
-                modal.modalIn({
-                    header: livesExpiredText.header,
-                    body: livesExpiredText.body
-                });
+                buildEndGameText(livesExpiredText);
+                this.gameOver();
             },
 
             drowned: function() {
                 player.state = 'drowned';
+                ++timesDrowned;
                 hearts.pop();
                 reset(100);
 
@@ -295,6 +305,7 @@ var game = (function() {
 
             eaten: function() {
                 player.state = 'eaten';
+                ++timesEaten;
                 if (hearts.length) hearts.pop();
                 reset(0);
 
@@ -315,31 +326,25 @@ var game = (function() {
                 scoreTemp += gem.value;
                 texts.score.dynamic = score + scoreTemp;
 
-                console.log('game.gemAcquired, scoreTemp:', scoreTemp);
                 var ixGem;
                 for (var i = 0; i < gems.length; i++) {
                     if (gems[i] === gem) ixGem = i;
                 }
                 delete gems.splice(ixGem, 1);
             },
-
-            //TEMP:
+/*
+            //TEMP for debugging:
             getTileMatrix: function() {
                 return tileMatrix;
             },
             //END TEMP
-
-            blocked: function() {
-                console.log('blocked');
-            },
-
+*/
             initTimer: function() {
                 var now = Date.now();
                 idGameInterval = window.setInterval(updateTime, 1000, now);
             },
 
             displayRemainingTime: function() {
-                //console.log('displayRemainingTime, dTime, curTimeAllowed: ', dTime, curTimeAllowed);
                 var mins, sTime,
                     secs = Math.ceil((curTimeAllowed - dTime)/1000),
                     formatter = function(n) {
@@ -367,14 +372,12 @@ var game = (function() {
             },
 
             buildEnemies: function() {
-                console.log('buildEnemies, level:', level);
                 //take out the trash... immediately free memory of enemy objects
                 while (allEnemies.length-1 >= 0) {
                     delete allEnemies.pop();
                 }
 
-                //start with 2 enemies. add another every 5th level up
-                console.log('buildEnemies, factorEnemy:', factorEnemy);
+                //start with 2 enemies. add another every factored level up
                 var n = Math.floor(level/factorEnemy)+2;
 
                 //reuse getGemType to get lower probability of reverse direction bug
@@ -397,12 +400,9 @@ var game = (function() {
                 texts.score = new Text('Score: ', score, (COLS - 3)*COL_WIDTH, 35);
                 texts.level = new Text('Level: ', level, (COLS - 1)*COL_WIDTH, 35);
                 texts.timeRemaining = new Text('Time Remaining: ', '00:00', 0, (ROWS+2)*ROW_HEIGHT-45);
-
-                //console.log('buildTexts, texts:', texts);
             },
 
             buildHearts: function() {
-                //hearts = [];
                 while (hearts.length) {
                     delete hearts.pop();
                 }
@@ -449,7 +449,6 @@ var game = (function() {
                 var x, y, row, col, gemType, gemCount = 0, count = Math.floor(level/4) + 1;
 
                 while (gemCount < count) {
-                    //TODO: I don't like running matrixFull. come up with a way of limiting objects on tiles.
                     //unlikely, but possible that tiles be covered entirely by objects. ensure program doesn't hang
                     if (matrixFull()) break;
 
@@ -462,6 +461,7 @@ var game = (function() {
                     if (!(tileMatrix[row][col][2] instanceof Entity)) {
                         gemType = getGemType();
                         gems.push(new Gem(gemType.image, x, y, gemType.value));
+                        scorePossible += gemType.value;
                         tileMatrix[row][col][2] = gems[gems.length-1]; //keep reference to gem
                         gemCount++;
                     }
@@ -512,12 +512,6 @@ var game = (function() {
 $(function() {
     modal.init();
     game.init();
-    //console.log('jQuery ready, modal:', modal);
-
-    //modal.button.on('click', modal.modalOut);
-    //var player = new Player('images/char-boy.png');
-    //buildEnemies(3);
-
 });
 
 
