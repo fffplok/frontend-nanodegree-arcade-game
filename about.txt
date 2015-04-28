@@ -1,0 +1,20 @@
+http://www.fileformat.info/
+for unicode characters of arrows
+
+--------------
+http://daneden.github.io/animate.css/
+for css animation of modal window
+
+--------------
+https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
+for markdown syntax
+
+--------------
+https://gist.github.com/gre/1650294
+http://gabrieleromanato.name/javascript-implementing-the-fadein-and-fadeout-methods-without-jquery/
+for a handful of easing functions to play with. I applied bounce to the gem fade in animation.
+
+
+--------------
+http://getbootstrap.com/javascript/#modals
+modeled my modal window html markup on how bootstrap did it to create my own modal window functionality
